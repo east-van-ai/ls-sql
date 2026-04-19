@@ -125,6 +125,7 @@ ls-sql . | awk '{print $1}' | xargs open
 
 - PNG -- Stable Diffusion / A1111 generated images
 - JPG -- Photographer EXIF data
+- MP3 -- Music ID3 tags
 - PDF -- planned
 
 ## Installation

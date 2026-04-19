@@ -58,6 +58,7 @@ Namespaces keep tags organised and prevent collisions between sources.
 ls:    ls-sql native tags
 sd:    Stable Diffusion / A1111
 ex:    EXIF data
+au:    audio metadata (MP3, AAC, FLAC, whatever comes next)
 ud:    User defined custom tags
 ```
 
@@ -85,6 +86,12 @@ ex:iso   ISO value
 ex:ss    Shutter speed (e.g. 1-500)
 ex:lat   Exif GPSLatitude  
 ex:lon   Exif GPSLongitude
+
+au:ar    Artist
+au:al    Album
+au:tt    Track title
+au:tn    Track number
+au:yr    Year
 
 ud:*     Anything that does not overlap with ls-sql native tags
 ```
