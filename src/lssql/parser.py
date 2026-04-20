@@ -1,5 +1,3 @@
-# parser.py
-
 SEPARATOR = "^^^"
 
 

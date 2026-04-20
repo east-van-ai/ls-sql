@@ -76,7 +76,7 @@ sd:sp    Sampling steps
 sd:sh    Schedule type
 sd:cfg   CFG scale
 sd:sd    Seed
-sd:la    Lola
+sd:la    Lora
 
 ex:dto   Exif DateTimeOriginal
 ex:cam   Camera model, slugified (e.g. canon-r5)
@@ -254,6 +254,7 @@ Python 3.x. Packaged with `pyproject.toml` for `pip install` and Homebrew cask d
 ```text
 Pillow          PNG metadata extraction (A1111 PNGInfo)
 piexif          EXIF reading for JPG
+mutagen         ID3/MP3 metadata extraction
 pyyaml          Config file parsing
 hashlib         SHA256 for file content hash
 os.scandir()    Fast directory traversal
@@ -272,8 +273,8 @@ No database dependency. No ORM. No migration files.
 ```toml
 [project]
 name = "ls-sql"
-version = "0.1.0"
-requires-python = ">=3.11"
+version = "0.4.0"
+requires-python = ">=3.14"
 
 [project.scripts]
 ls-sql = "lssql.cli:main"
@@ -294,7 +295,6 @@ ls-sql = "lssql.cli:main"
 
 - Prompt summarizer: harvest a short slug from the SD prompt into the filename
 - Command line album viewer (Kitty / iTerm2 inline image protocol)
-- Django extentions
 - These are additive. The V1 filename format does not change.
 
 ---

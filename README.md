@@ -50,10 +50,11 @@ ls-sql --remove-all-tags --commit ~/photos
 
 ## Filename convention
 
-`ls-sql` appends structured metadata to existing filenames using `^^^` as a harvest boundary.
+`ls-sql` implements the **Hatfile** convention -- a filename-embedded metadata
+standard using `^^^` as a harvest boundary.
 
 ```text
-00234-1234567890^^^sd:mn=sdxl^sd:sampler=euler-a^ex:DTO=2024:07:12^ls:fh=a3f2c8f91b^ls:res=512x768^ls:hd=20260415^^^mom-at-wedding-1994-06-24.png
+00234-1234567890^^^sd:mn=sdxl^sd:sampler=euler-a^ex:dto=2024:07:12^ls:fh=a3f2c8f91b^ls:res=512x768^ls:hd=20260415^^^mom-at-wedding-1994-06-24.png
 ^--- original, untouched ---^^--- structured metadata, tagged key-value pairs ------------------------^^--- human comment ----------------------^
 ```
 
@@ -98,10 +99,10 @@ ud:*     Anything that does not overlap with ls-sql native tags
 Using `ud:london-2006` as a custom album
 
 ```text
-IMG_4520^^^ex:DTO=2006:13:15^ls:fh=9b1d4e72ac^ud:2006-london=1^ud:where=palace^^^nice-to-meet-you.jpg
-IMG_4521^^^ex:DTO=2006:14:10^ls:fh=c3f8a12b91^ud:2006-london=2^ud:where=thames^^^is-it-raining.jpg
-IMG_4522^^^ex:DTO=2006:14:15^ls:fh=a3f2c8f91b^ud:2006-london=3^ud:where=london-eye^^^you-might-melt-in-rain.jpg
-IMG_4523^^^ex:DTO=2006:23:15^ls:fh=d4e9b23c82^ud:2006-london=4^ud:where=oxo-building^^^it-was-like-a-movie.jpg
+IMG_4520^^^ex:dto=2006:13:15^ls:fh=9b1d4e72ac^ud:2006-london=1^ud:where=palace^^^nice-to-meet-you.jpg
+IMG_4521^^^ex:dto=2006:14:10^ls:fh=c3f8a12b91^ud:2006-london=2^ud:where=thames^^^is-it-raining.jpg
+IMG_4522^^^ex:dto=2006:14:15^ls:fh=a3f2c8f91b^ud:2006-london=3^ud:where=london-eye^^^you-might-melt-in-rain.jpg
+IMG_4523^^^ex:dto=2006:23:15^ls:fh=d4e9b23c82^ud:2006-london=4^ud:where=oxo-building^^^it-was-like-a-movie.jpg
 ```
 
 ## Output style
