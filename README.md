@@ -107,11 +107,11 @@ IMG_4523^^^ex:dto=2006:23:15^ls:fh=d4e9b23c82^ud:2006-london=4^ud:where=oxo-buil
 
 ## Output style
 
-Output follows `ls` conventions -- full path, pipeable, composable.
+Output prints full path, pipeable, composable result.
 
 ```text
-/Users/go/SD/outputs/00234^^^sd:mn=sdxl^ls:fh=a3f2c8f91b.png                    2.1MB   2026-04-13
-/Users/go/SD/outputs/00891^^^sd:mn=flux^ls:fh=9b1d4e72ac^^^dog-in-tuxedo.png    1.8MB   2026-04-13
+/Users/go/SD/outputs/00234^^^sd:mn=sdxl^ls:fh=a3f2c8f91b.png
+/Users/go/SD/outputs/00891^^^sd:mn=flux^ls:fh=9b1d4e72ac^^^dog-in-tuxedo.png
 ```
 
 Pipe it anywhere:

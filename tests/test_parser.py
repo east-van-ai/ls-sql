@@ -1,7 +1,9 @@
 from lssql.parser import (
+    build_file_path,
     parse_filename,
     split_filename_stem,
     split_extension,
+    split_path,
     should_skip,
 )
 
@@ -112,38 +114,6 @@ def test_harvested_filename_too_many():
 SEPARATOR = "^^^"
 
 
-def test_none_stem():
-    stem = None
-    original, raw_tags, comment = split_filename_stem(stem, SEPARATOR)
-    assert original == None
-    assert raw_tags == None
-    assert comment == None
-
-
-def test_empty_stem():
-    stem = ""
-    original, raw_tags, comment = split_filename_stem(stem, SEPARATOR)
-    assert original == None
-    assert raw_tags == None
-    assert comment == None
-
-
-def test_dot_stem():
-    stem = "."
-    original, raw_tags, comment = split_filename_stem(stem, SEPARATOR)
-    assert original == None
-    assert raw_tags == None
-    assert comment == None
-
-
-def test_dot_dot_stem():
-    stem = ".."
-    original, raw_tags, comment = split_filename_stem(stem, SEPARATOR)
-    assert original == None
-    assert raw_tags == None
-    assert comment == None
-
-
 def test_stem_no_separator():
     stem = "0001-01234"
     original, raw_tags, comment = split_filename_stem(stem, SEPARATOR)
@@ -176,6 +146,39 @@ def test_stem_three_separator():
     assert comment == ""
 
 
+# test split_path
+
+
+def test_filepath_end_with_slash():
+    result = split_path("DIRECTORY_NAME/")
+    assert result == ("DIRECTORY_NAME", "")
+
+
+def test_filepath_no_slash():
+    result = split_path("FILE_NAME")
+    assert result == ("", "FILE_NAME")
+
+
+def test_filepath_hidden_file():
+    result = split_path("/User/go/.hidden_file")
+    assert result == ("/User/go", ".hidden_file")
+
+
+def test_filepath_file_without_extension():
+    result = split_path("/User/go/IMG_4520")
+    assert result == ("/User/go", "IMG_4520")
+
+
+def test_filepath_file_with_extension():
+    result = split_path("/User/go/IMG_4520.jpg")
+    assert result == ("/User/go", "IMG_4520.jpg")
+
+
+def test_filepath_with_three_carets():
+    result = split_path("/User/go^^^/IMG_4520.jpg")
+    assert result == ("/User/go^^^", "IMG_4520.jpg")
+
+
 # test split_extension
 
 
@@ -202,6 +205,26 @@ def test_should_skip():
     assert should_skip("")
     assert should_skip(".")
     assert should_skip("..")
+    assert should_skip(".hidden-file")
+    assert should_skip("filename-without-extension")
+    assert should_skip("filename-without-extension.")
 
-    assert not should_skip("ab")
-    assert not should_skip("abc")
+    assert not should_skip("ab.jpg")
+    assert not should_skip("abc.mp3")
+
+
+# test build_file_path
+
+
+def test_build_file_path():
+    assert (
+        build_file_path({"path": "src/lib", "filename": "lib.py"}) == "src/lib/lib.py"
+    )
+
+
+def test_build_file_path_empty_path():
+    assert build_file_path({"path": "", "filename": "main.py"}) == "main.py"
+
+
+def test_build_file_path_None_path():
+    assert build_file_path({"path": None, "filename": "main.py"}) == "main.py"

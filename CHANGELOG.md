@@ -6,6 +6,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-04-21
+
+### Changed
+
+- output is full path per line -- ls convention corrected, size and date removed
+- scanner returns dicts, FileRow class removed
+- path key holds directory only, filename excluded
+
+### Added
+
+- filename key in parsed dict -- raw system filename, reconstruction is lossy
+- skip files without extensions
+- skip hidden files
+- guard against ^^^ in directory path in piped mode
+
+### Fixed
+
+- ex:dto tag casing corrected in DESIGN doc
+
 ## [0.4.0] - 2026-04-20
 
 ### Dev

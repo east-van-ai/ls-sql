@@ -3,7 +3,7 @@ tests for lssql.scanner with pytest.
 * 'tmp_path' -- a built-in pytest fixture. fresh temporary directory per test, cleans up automatically.
 """
 
-from lssql.scanner import scan_directory, FileRow
+from lssql.scanner import scan_directory
 
 
 class TestScanDirectory:
@@ -15,10 +15,10 @@ class TestScanDirectory:
         result = scan_directory(str(tmp_path))
         assert result == []
 
-    def test_returns_filerow_instances(self, tmp_path):
+    def test_returns_dict_instances(self, tmp_path):
         (tmp_path / "photo.jpg").write_bytes(b"- fake -")
         result = scan_directory(str(tmp_path))
-        assert all(isinstance(row, FileRow) for row in result)
+        assert all(isinstance(row, dict) for row in result)
 
     def test_skips_subdirectories(self, tmp_path):
         (tmp_path / "subdir").mkdir()
@@ -38,26 +38,23 @@ class TestScanDirectory:
         result = scan_directory(str(tmp_path))
         assert len(result) == 3
 
-    def test_filerow_has_expected_fields(self, tmp_path):
+    def test_dict_has_expected_fields(self, tmp_path):
         (tmp_path / "photo.jpg").write_bytes(b"- fake -")
         row = scan_directory(str(tmp_path))[0]
-        assert hasattr(row, "path")
-        assert hasattr(row, "size")
-        assert hasattr(row, "mtime")
-        assert hasattr(row, "parsed")
-
-    def test_filerow_repr_is_readable(self, tmp_path):
-        # placeholder -- repr format will be revised when __repr__ is overridden
-        (tmp_path / "photo.jpg").write_bytes(b"fake")
-        row = scan_directory(str(tmp_path))[0]
-        result = repr(row)
-        assert "FileRow" in result
-        assert "path" in result
-        assert "size" in result
-        assert "parsed" in result
+        assert "path" in row
+        assert "original" in row
+        assert "tags" in row
+        assert "comment" in row
+        assert "ext" in row
+        assert "harvested" in row
 
     def test_parsed_field_is_populated(self, tmp_path):
         (tmp_path / "photo.jpg").write_bytes(b"- fake -")
         row = scan_directory(str(tmp_path))[0]
-        assert isinstance(row.parsed, dict)
-        assert "original" in row.parsed
+        assert isinstance(row, dict)
+        assert row["path"], "path is not empty"
+        assert row["original"], "original(filename) is not empty"
+        assert row["tags"] == {}, "tags dict is empty hence not harvested"
+        assert row["comment"] == "", "comment is empty hence not harvested"
+        assert row["ext"], "file extension is not empty"
+        assert row["harvested"] is False, "data is not harvested from 'photo.jpg'"

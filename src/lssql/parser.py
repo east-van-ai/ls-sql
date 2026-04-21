@@ -15,11 +15,13 @@ def parse_filename(filename: str) -> dict:
     harvested = not (original is None or original == stem)
 
     data = {
+        "path": "",
         "original": original,
         "tags": tags,
         "comment": comment,
         "ext": ext,
         "harvested": harvested,
+        "filename": filename,
     }
 
     return data
@@ -42,12 +44,10 @@ def parse_tags(raw: str) -> dict:
 
 def split_filename_stem(stem: str, separator: str) -> tuple:
     """
-    split filename stem into 3 sections(original, raw_tags, comment)
-    if stem is to be skipped, return None values
-    if stem has too many separators, return parameter value as original
+    split a filename stem into (original, raw_tags, comment).
+    * caller must strip any directory components from stem before invoking.
+    * when stem contains too many separators, return it as 'original'.
     """
-    if should_skip(stem):
-        return None, None, None
 
     if stem.count(separator) > 2:
         return stem, "", ""
@@ -59,6 +59,18 @@ def split_filename_stem(stem: str, separator: str) -> tuple:
     comment = parts[2] if len(parts) > 2 else ""
 
     return original, raw_tags, comment
+
+
+def split_path(filename_with_path: str) -> tuple:
+    """
+    return (directory, filename)
+    """
+    slash = filename_with_path.rfind("/")  # last slash
+    if slash == -1:
+        return "", filename_with_path  # no directory
+
+    # split before and after the slash
+    return filename_with_path[:slash], filename_with_path[slash + 1 :]
 
 
 def split_extension(filename: str) -> tuple:
@@ -85,4 +97,25 @@ SKIP = {None, "", ".", ".."}
 
 
 def should_skip(filename: str) -> bool:
-    return filename in SKIP
+    """
+    return True if the file should be ignored.
+    * caller must strip any directory components from filename before invoking.
+
+    Hidden or no extension files -- skipped silently.
+        Out of scope by design.
+    """
+    if filename in SKIP:  # explicitly listed to skip
+        return True
+
+    stem, ext = split_extension(filename)  # ext includes the dot
+
+    is_hidden = stem == ""
+    has_no_extension = ext in ("", ".")
+
+    return is_hidden or has_no_extension
+
+
+def build_file_path(parsed: dict) -> str:
+    """combine `path` and `filename` into a string."""
+    path = f"{parsed.get('path')}/" if parsed.get("path") else ""
+    return f"{path}{parsed.get('filename')}"

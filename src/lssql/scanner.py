@@ -1,19 +1,11 @@
 import os
 from dataclasses import dataclass
-from lssql.parser import parse_filename
+from lssql.parser import parse_filename, should_skip
 
 
-@dataclass
-class FileRow:
-    path: str
-    size: int
-    mtime: float
-    parsed: dict
-
-
-def scan_directory(directory: str) -> list[FileRow]:
+def scan_directory(directory: str) -> list[dict]:
     """
-    scan a directory and return a list of FileRow.
+    scan a directory and return a list of dictionaries.
     does not recurse into subdirectories.
     """
     rows = []
@@ -26,21 +18,11 @@ def scan_directory(directory: str) -> list[FileRow]:
                 # - cf. `os.scandir` does not return `.` or `..`
                 continue
 
-            stem, _ = os.path.splitext(entry.name)
-            if stem and stem.startswith("."):
-                # - skip hidden files (.gitignore)
-                # - keep other ones including no-extension-files
+            if should_skip(entry.name):
                 continue
 
-            stat = entry.stat()
             parsed = parse_filename(entry.name)
-
-            row = FileRow(
-                path=entry.path,
-                size=stat.st_size,
-                mtime=stat.st_mtime,
-                parsed=parsed,
-            )
-            rows.append(row)
+            parsed["path"] = os.path.dirname(entry.path)  # set relative path
+            rows.append(parsed)
 
     return rows

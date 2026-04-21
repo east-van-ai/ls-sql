@@ -35,7 +35,7 @@ The filesystem is the only source of truth. There is no database to maintain, no
 All metadata uses `namespace:key=value` pairs separated by `^`. Order does not matter. Missing fields are skipped cleanly.
 
 ```text
-sd:mn=sdxl^sd:cfg=7.5^ex:DTO=2024:07:12^ls:fh=a3f2c8f91b^ls:res=512x768
+sd:mn=sdxl^sd:cfg=7.5^ex:dto=2024:07:12^ls:fh=a3f2c8f91b^ls:res=512x768
 ```
 
 ### Character budget
@@ -121,10 +121,10 @@ Additional `ud:` tags on the same file carry captions, locations, or any other p
 ### Album example
 
 ```text
-IMG_4520^^^ex:DTO=2006:03:15^ls:fh=9b1d4e72ac^ud:2006-london=1^ud:where=palace^^^nice-to-meet-you.jpg
-IMG_4521^^^ex:DTO=2006:04:10^ls:fh=c3f8a12b91^ud:2006-london=2^ud:where=thames^^^is-it-raining.jpg
-IMG_4522^^^ex:DTO=2006:04:15^ls:fh=a3f2c8f91b^ud:2006-london=3^ud:where=london-eye^^^you-might-melt-in-rain.jpg
-IMG_4523^^^ex:DTO=2006:11:15^ls:fh=d4e9b23c82^ud:2006-london=4^ud:where=oxo-building^^^it-was-like-a-movie.jpg
+IMG_4520^^^ex:dto=2006:03:15^ls:fh=9b1d4e72ac^ud:2006-london=1^ud:where=palace^^^nice-to-meet-you.jpg
+IMG_4521^^^ex:dto=2006:04:10^ls:fh=c3f8a12b91^ud:2006-london=2^ud:where=thames^^^is-it-raining.jpg
+IMG_4522^^^ex:dto=2006:04:15^ls:fh=a3f2c8f91b^ud:2006-london=3^ud:where=london-eye^^^you-might-melt-in-rain.jpg
+IMG_4523^^^ex:dto=2006:11:15^ls:fh=d4e9b23c82^ud:2006-london=4^ud:where=oxo-building^^^it-was-like-a-movie.jpg
 ```
 
 Query an album:
@@ -226,11 +226,11 @@ ls-sql --remove-all-tags --commit ~/photos            # restore original filenam
 
 ## Output style
 
-Output follows `ls` conventions -- full path, pipeable, composable.
+Output prints full path, pipeable, composable result.
 
 ```text
-/Users/go/SD/outputs/00234^^^sd:mn=sdxl^ls:fh=a3f2c8f91b.png                    2.1MB   2026-04-13
-/Users/go/SD/outputs/00891^^^sd:mn=flux^ls:fh=9b1d4e72ac^^^dog-in-tuxedo.png    1.8MB   2026-04-13
+/Users/go/SD/outputs/00234^^^sd:mn=sdxl^ls:fh=a3f2c8f91b.png
+/Users/go/SD/outputs/00891^^^sd:mn=flux^ls:fh=9b1d4e72ac^^^dog-in-tuxedo.png
 ```
 
 Pipe it anywhere:
@@ -273,7 +273,7 @@ No database dependency. No ORM. No migration files.
 ```toml
 [project]
 name = "ls-sql"
-version = "0.4.0"
+version = "0.5.0"
 requires-python = ">=3.14"
 
 [project.scripts]
