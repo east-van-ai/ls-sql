@@ -181,7 +181,7 @@ Congratulations. Go get proper gear. 🎣
 
 ## Status
 
-Early design phase. See [DESIGN.md](DESIGN.md) for full specification.
+Early development phase. See [DESIGN.md](DESIGN.md) for full specification.
 
 ## License
 

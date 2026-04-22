@@ -1,5 +1,4 @@
 import os
-from dataclasses import dataclass
 from lssql.parser import parse_filename, should_skip
 
 

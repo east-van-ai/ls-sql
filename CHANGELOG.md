@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-04-22
+
+### Dev
+
+- harvester scaffold -- save file metadata in filenames
+
+### Added
+
+- add ls:hd harvest date
+- Dry-run mode by default, `--commit` to execute
+- Skip already-harvested files (idempotent)
+- detect and avoid non-existent path
+
 ## [0.5.0] - 2026-04-21
 
 ### Changed
@@ -13,6 +26,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - output is full path per line -- ls convention corrected, size and date removed
 - scanner returns dicts, FileRow class removed
 - path key holds directory only, filename excluded
+- alphabetical order as default output in standalone mode
 
 ### Added
 
