@@ -14,6 +14,8 @@ from lssql.harvester import (
     harvest_directory,
     harvest_file,
     is_already_harvested,
+    remove_tags_from_directory,
+    remove_tags_from_filename,
 )
 
 # -- harvest_date --
@@ -172,3 +174,95 @@ def test_harvest_directory_not_recursive_by_default(tmp_path, freeze_date):
     filenames = [r["file"] for r in results]
     assert "top.jpg" in filenames
     assert "nested.jpg" not in filenames
+
+
+# -- remove_tags_from_filename --
+
+
+def test_remove_tags_from_filename_simple(freeze_date):
+    result = remove_tags_from_filename("photo^^^ls:hd=20260421.jpg")
+    assert result == "photo.jpg"
+
+
+def test_remove_tags_from_filename_simple_no_comment(freeze_date):
+    result = remove_tags_from_filename("photo^^^ls:hd=20260421^^^.jpg")
+    assert result == "photo.jpg"
+
+
+def test_remove_tags_from_filename_preserves_comment(freeze_date):
+    result = remove_tags_from_filename("photo^^^ls:hd=20260421^^^nice-day.jpg")
+    assert result == "photo^^^^^^nice-day.jpg"
+
+
+def test_remove_tags_from_filename_multiple_tags(freeze_date):
+    result = remove_tags_from_filename("photo^^^ls:hd=20260421^ud:test=hello.jpg")
+    assert result == "photo.jpg"
+
+
+# -- remove_tags_from_directory --
+
+
+def test_remove_tags_dry_run(tmp_path, freeze_date):
+    (tmp_path / "photo^^^ls:hd=20260421.jpg").write_text("x")
+
+    results = remove_tags_from_directory(str(tmp_path), commit=False)
+
+    assert results[0]["status"] == "dry-run"
+    assert results[0]["new_name"] == "photo.jpg"
+    assert (tmp_path / "photo^^^ls:hd=20260421.jpg").exists()
+
+
+def test_remove_tags_commit(tmp_path, freeze_date):
+    (tmp_path / "photo^^^ls:hd=20260421.jpg").write_text("x")
+
+    results = remove_tags_from_directory(str(tmp_path), commit=True)
+
+    assert results[0]["status"] == "restored"
+    assert (tmp_path / "photo.jpg").exists()
+    assert not (tmp_path / "photo^^^ls:hd=20260421.jpg").exists()
+
+
+def test_remove_tags_skips_unharvested(tmp_path):
+    (tmp_path / "photo.jpg").write_text("x")
+
+    results = remove_tags_from_directory(str(tmp_path), commit=False)
+
+    assert results[0]["status"] == "skipped"
+    assert results[0]["reason"] == "not harvested"
+
+
+def test_remove_tags_skips_hidden(tmp_path):
+    (tmp_path / ".hidden^^^ls:hd=20260421.jpg").write_text("x")
+    (tmp_path / "visible^^^ls:hd=20260421.jpg").write_text("x")
+
+    results = remove_tags_from_directory(str(tmp_path), commit=False)
+
+    filenames = [r["file"] for r in results]
+    assert ".hidden^^^ls:hd=20260421.jpg" not in filenames
+    assert "visible^^^ls:hd=20260421.jpg" in filenames
+
+
+def test_remove_tags_recursive(tmp_path):
+    sub = tmp_path / "sub"
+    sub.mkdir()
+    (tmp_path / "top^^^ls:hd=20260421.jpg").write_text("x")
+    (sub / "nested^^^ls:hd=20260421.jpg").write_text("x")
+
+    results = remove_tags_from_directory(str(tmp_path), commit=False, recursive=True)
+
+    filenames = [r["file"] for r in results]
+    assert "top^^^ls:hd=20260421.jpg" in filenames
+    assert "nested^^^ls:hd=20260421.jpg" in filenames
+
+
+def test_remove_tags_not_recursive_by_default(tmp_path):
+    sub = tmp_path / "sub"
+    sub.mkdir()
+    (tmp_path / "top^^^ls:hd=20260421.jpg").write_text("x")
+    (sub / "nested^^^ls:hd=20260421.jpg").write_text("x")
+
+    results = remove_tags_from_directory(str(tmp_path), commit=False)
+
+    filenames = [r["file"] for r in results]
+    assert "top^^^ls:hd=20260421.jpg" in filenames
+    assert "nested^^^ls:hd=20260421.jpg" not in filenames

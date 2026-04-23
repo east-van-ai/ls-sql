@@ -2,7 +2,7 @@ import argparse
 import os
 import sys
 
-from lssql.harvester import harvest_directory
+from lssql.harvester import harvest_directory, remove_tags_from_directory
 from lssql.parser import build_file_path, parse_filename, should_skip, split_path
 from lssql.scanner import scan_directory
 
@@ -33,6 +33,27 @@ def run_harvest_mode(path: str, commit: bool, recursive: bool) -> None:
         print("  (no files changed -- pass --commit to execute)")
 
 
+def run_remove_mode(path: str, commit: bool, recursive: bool) -> None:
+    results = remove_tags_from_directory(path, commit=commit, recursive=recursive)
+
+    for r in results:
+        status = r["status"]
+        if status in ("restored", "dry-run"):
+            print(f"  {status:>7} : {r['file']}")
+            print(f"        -> : {r['new_name']}")
+        elif status == "skipped":
+            print(f"  skipped : {r['file']}  ({r['reason']})")
+
+    actioned = sum(1 for r in results if r["status"] in ("restored", "dry-run"))
+    skipped = sum(1 for r in results if r["status"] == "skipped")
+
+    mode_label = "committed" if commit else "dry-run"
+    print(f"\n{actioned} file(s) {mode_label}, {skipped} skipped")
+
+    if not commit:
+        print("  (no files changed -- pass --commit to execute)")
+
+
 def main():
     # argparse only kicks in when there are actual args
     parser = argparse.ArgumentParser(
@@ -46,6 +67,11 @@ def main():
         help="(required) target directory: . for the current directory",
     )
     parser.add_argument("--harvest", action="store_true", help="harvest mode")
+    parser.add_argument(
+        "--remove-all-tags",
+        action="store_true",
+        help="strip all harvested tags, restore original filenames",
+    )
     parser.add_argument(
         "--dry-run", action="store_true", help="preview only, no changes"
     )
@@ -67,11 +93,12 @@ def main():
 
     # 'path' is a positional argument
     if not args.path:
+        print("error: '--path' is required. use '.' for the current directory.\n")
         parser.print_help(sys.stderr)
         sys.exit(1)
 
     if not os.path.isdir(args.path):
-        print(f"provided directory does not exist:\n {args.path}\n")
+        print(f"error: directory not found: {args.path}\n")
         parser.print_help(sys.stderr)
         sys.exit(1)
 
@@ -79,6 +106,13 @@ def main():
         print(f"'-R' recursive is currently not supported in querying mode\n")
         parser.print_help(sys.stderr)
         sys.exit(1)
+
+    # standalone remove all tags mode
+
+    if args.remove_all_tags:
+        commit = args.commit and not args.dry_run
+        run_remove_mode(args.path, commit=commit, recursive=args.recursive)
+        return
 
     # standalone harvest mode
 

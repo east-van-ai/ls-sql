@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-04-23
+
+### Dev
+
+- enable --remove-all-tags with --dry-run and --commit
+
 ## [0.6.0] - 2026-04-22
 
 ### Dev
