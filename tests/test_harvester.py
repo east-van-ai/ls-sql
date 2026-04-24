@@ -4,13 +4,9 @@ tests for lssql.harvester with pytest.
 * 'freeze_date' -- a custom pytest fixture defined in 'conftest.py'
 """
 
-import os
 import pytest
-from unittest.mock import patch
-import lssql.harvester as harvester
 from lssql.harvester import (
     build_harvested_filename,
-    # harvest_date,
     harvest_directory,
     harvest_file,
     is_already_harvested,
@@ -18,16 +14,6 @@ from lssql.harvester import (
     remove_tags_from_directory,
     remove_tags_from_filename,
 )
-
-# -- harvest_date --
-
-
-def test_harvest_date(freeze_date):
-    """harvest_date() must be called via the module, not imported directly, while freeze_date is active."""
-    assert len(harvester.harvest_date()) == 8
-    assert harvester.harvest_date().isdigit()
-    assert harvester.harvest_date() == "20260421"
-
 
 # -- is_troublesome_name --
 
@@ -93,13 +79,40 @@ def test_build_harvested_filename_preserves_extension(freeze_date):
     assert result == "song^^^ls:hd=20260421.mp3"
 
 
+## -- build_harvested_filename with ls:fh --
+
+
+def test_build_harvested_filename_includes_fh(tmp_path, freeze_date):
+    f = tmp_path / "photo.jpg"
+    f.write_text("fake image content")
+    result = build_harvested_filename("photo.jpg", str(tmp_path))
+    assert "ls:hd=20260421" in result
+    assert "ls:fh=" in result
+
+
+def test_build_harvested_filename_fh_is_10_chars(tmp_path, freeze_date):
+    f = tmp_path / "photo.jpg"
+    f.write_text("fake image content")
+    result = build_harvested_filename("photo.jpg", str(tmp_path))
+    # extract fh value
+    fh_part = [p for p in result.split("^") if p.startswith("ls:fh=")][0]
+    fh_value = fh_part.split("=")[1].split("^")[0].split("^")[0]
+    # strip extension if it crept in
+    fh_value = fh_value.split(".")[0]
+    assert len(fh_value) == 10
+
+
 # -- harvest_file --
 
 
-def test_harvest_file_dry_run(freeze_date):
-    result = harvest_file("/some/dir", "photo.jpg", commit=False)
+def test_harvest_file_dry_run(tmp_path, freeze_date):
+    some = tmp_path / "some"
+    some.mkdir()
+    f = some / "photo.jpg"
+    f.write_text("fake image content")
+    result = harvest_file(str(some), "photo.jpg", commit=False)
     assert result["status"] == "dry-run"
-    assert result["new_name"] == "photo^^^ls:hd=20260421.jpg"
+    assert result["new_name"] == "photo^^^ls:hd=20260421^ls:fh=03754271b0.jpg"
 
 
 def test_harvest_file_commit(tmp_path, freeze_date):
@@ -109,8 +122,8 @@ def test_harvest_file_commit(tmp_path, freeze_date):
     result = harvest_file(str(tmp_path), "photo.jpg", commit=True)
 
     assert result["status"] == "renamed"
-    assert result["new_name"] == "photo^^^ls:hd=20260421.jpg"
-    assert (tmp_path / "photo^^^ls:hd=20260421.jpg").exists()
+    assert result["new_name"] == "photo^^^ls:hd=20260421^ls:fh=03754271b0.jpg"
+    assert (tmp_path / "photo^^^ls:hd=20260421^ls:fh=03754271b0.jpg").exists()
     assert not (tmp_path / "photo.jpg").exists()
 
 
@@ -137,14 +150,14 @@ def test_harvest_directory_dry_run(tmp_path, freeze_date):
 
 
 def test_harvest_directory_commit(tmp_path, freeze_date):
-    (tmp_path / "a.jpg").write_text("x")
-    (tmp_path / "b.png").write_text("x")
+    (tmp_path / "a.jpg").write_text("fake image content")
+    (tmp_path / "b.png").write_text("fake image content")
 
     results = harvest_directory(str(tmp_path), commit=True)
 
     assert all(r["status"] == "renamed" for r in results)
-    assert (tmp_path / f"a^^^ls:hd=20260421.jpg").exists()
-    assert (tmp_path / f"b^^^ls:hd=20260421.png").exists()
+    assert (tmp_path / f"a^^^ls:hd=20260421^ls:fh=03754271b0.jpg").exists()
+    assert (tmp_path / f"b^^^ls:hd=20260421^ls:fh=03754271b0.png").exists()
 
 
 def test_harvest_directory_skips_hidden(tmp_path, freeze_date):

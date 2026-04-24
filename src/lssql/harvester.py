@@ -1,11 +1,7 @@
 import os
-from datetime import datetime
+from lssql.harvester_ls import content_hash, harvest_date
 
 SEPARATOR = "^^^"
-
-
-def harvest_date() -> str:
-    return datetime.now().strftime("%Y%m%d")
 
 
 def is_troublesome_name(filename: str) -> bool:
@@ -26,7 +22,7 @@ def is_already_harvested(filename: str) -> bool:
     return len(parts[1]) > 0
 
 
-def build_harvested_filename(filename: str) -> str:
+def build_harvested_filename(filename: str, directory: str = "") -> str:
     stem, ext = os.path.splitext(filename)
     parts = stem.split(SEPARATOR)
 
@@ -34,10 +30,15 @@ def build_harvested_filename(filename: str) -> str:
     comment = parts[2] if len(parts) > 2 else ""
 
     hd_tag = f"ls:hd={harvest_date()}"
+    fh_tag = (
+        f"ls:fh={content_hash(os.path.join(directory, filename))}" if directory else ""
+    )
+
+    tags = "^".join(filter(None, [hd_tag, fh_tag]))
 
     if comment:
-        return f"{original}{SEPARATOR}{hd_tag}{SEPARATOR}{comment}{ext}"
-    return f"{original}{SEPARATOR}{hd_tag}{ext}"
+        return f"{original}{SEPARATOR}{tags}{SEPARATOR}{comment}{ext}"
+    return f"{original}{SEPARATOR}{tags}{ext}"
 
 
 def harvest_file(directory: str, filename: str, commit: bool) -> dict:
@@ -61,7 +62,7 @@ def harvest_file(directory: str, filename: str, commit: bool) -> dict:
             "reason": "already harvested",
         }
 
-    new_filename = build_harvested_filename(filename)
+    new_filename = build_harvested_filename(filename, directory)
     old_path = os.path.join(directory, filename)
     new_path = os.path.join(directory, new_filename)
 

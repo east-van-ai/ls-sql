@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.6.3] - 2026-04-24
+
+### Added
+
+- ls:fh tag -- displays the hash of a file’s content.
+
+### Changed
+
+- ls: tag handling -- logic moved out of the main module into a harvester_ls file.
+
 ## [0.6.2] - 2026-04-24
 
 ### Added
