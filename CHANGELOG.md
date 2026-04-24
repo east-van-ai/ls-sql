@@ -6,6 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.6.2] - 2026-04-24
+
+### Added
+
+- add `--max N` -- maximum number of harvest at once
+- prevent processing of problematic filenames
+- sort process results by directory and filename
+
+### Fixed
+
+- resolved unpredictability in `--harvest` and `--remove-all-tags`
+- fixed display handling for `--harvest` and `--remove-all-tags`
+- corrected recursive handling in `--remove-all-tags`
+
 ## [0.6.1] - 2026-04-23
 
 ### Dev

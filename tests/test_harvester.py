@@ -14,6 +14,7 @@ from lssql.harvester import (
     harvest_directory,
     harvest_file,
     is_already_harvested,
+    is_troublesome_name,
     remove_tags_from_directory,
     remove_tags_from_filename,
 )
@@ -28,6 +29,14 @@ def test_harvest_date(freeze_date):
     assert harvester.harvest_date() == "20260421"
 
 
+# -- is_troublesome_name --
+
+
+def test_is_troublesome_name():
+    assert is_troublesome_name("photo^^^hello^^^hey^^^you.jpg") is True
+    assert is_troublesome_name("photo^^^hello^^^hey^^^you^^^.jpg") is True
+
+
 # -- is_already_harvested --
 
 
@@ -35,11 +44,29 @@ def test_already_harvested_plain_filename():
     assert is_already_harvested("photo.jpg") is False
 
 
-def test_already_harvested_filename_with_empty_tags():
-    assert is_already_harvested("^^^.jpg") is True
-    assert is_already_harvested("photo^^^.jpg") is True
-    assert is_already_harvested("photo^^^^^^.jpg") is True
-    # assert is_already_harvested("photo^^^^^.jpg") is False # 5 carets. must fail
+def _caret_filenames(max_carets: int = 15, prefix: str = ""):
+    """
+    Yield filenames of the form ``<prefix><caret‑string>.jpg``.
+
+    * ``max_carets`` – maximum number of ^ characters (inclusive).
+    * ``prefix``    – optional string that appears before the carets.
+    """
+    for n in range(1, max_carets + 1):
+        yield f"{prefix}{'^' * n}.jpg"
+
+
+@pytest.mark.parametrize("filename", _caret_filenames(prefix=""))
+def test_carets_only_without_prefix_without_postfix(filename):
+    """A caret‑only filename must be reported as *not* harvested."""
+    assert is_already_harvested("^^^.jpg") is False
+    assert not is_already_harvested(filename)
+
+
+@pytest.mark.parametrize("filename", _caret_filenames(prefix="img_"))
+def test_carets_only_with_prefix_without_postfix(filename):
+    """A prefixed caret‑only filename must be reported as *not* harvested."""
+    assert is_already_harvested("img_^^^.jpg") is False
+    assert not is_already_harvested(filename)
 
 
 def test_already_harvested_with_separator():
@@ -174,6 +201,63 @@ def test_harvest_directory_not_recursive_by_default(tmp_path, freeze_date):
     filenames = [r["file"] for r in results]
     assert "top.jpg" in filenames
     assert "nested.jpg" not in filenames
+
+
+# -- harvest_directory -- max_files --
+"""
+os.scandir, which is used in 'harvest_directory', doesn't guarantee 
+alphabetical order, so these tests only assert on count, not which specific 
+files get picked. That's the right call. If deterministic file selection is
+needed with --max, that's a separate design decision.
+"""
+
+
+def test_harvest_directory_max_files_limits_results(tmp_path):
+    (tmp_path / "a.jpg").write_text("x")
+    (tmp_path / "b.jpg").write_text("x")
+    (tmp_path / "c.jpg").write_text("x")
+
+    results = harvest_directory(str(tmp_path), commit=False, max_files=2)
+
+    assert len(results) == 2
+
+
+def test_harvest_directory_max_files_zero_means_no_limit(tmp_path):
+    (tmp_path / "a.jpg").write_text("x")
+    (tmp_path / "b.jpg").write_text("x")
+    (tmp_path / "c.jpg").write_text("x")
+
+    results = harvest_directory(str(tmp_path), commit=False, max_files=0)
+
+    assert len(results) == 3
+
+
+def test_harvest_directory_max_files_larger_than_available(tmp_path):
+    (tmp_path / "a.jpg").write_text("x")
+    (tmp_path / "b.jpg").write_text("x")
+
+    results = harvest_directory(str(tmp_path), commit=False, max_files=10)
+
+    assert len(results) == 2
+
+
+def test_harvest_directory_max_files_less_than_zero_means_no_harvest(tmp_path):
+    (tmp_path / "a.jpg").write_text("x")
+    (tmp_path / "b.jpg").write_text("x")
+
+    results = harvest_directory(str(tmp_path), commit=False, max_files=-5)
+
+    assert len(results) == 0
+
+
+def test_harvest_directory_max_files_one(tmp_path):
+    (tmp_path / "a.jpg").write_text("x")
+    (tmp_path / "b.jpg").write_text("x")
+    (tmp_path / "c.jpg").write_text("x")
+
+    results = harvest_directory(str(tmp_path), commit=False, max_files=1)
+
+    assert len(results) == 1
 
 
 # -- remove_tags_from_filename --

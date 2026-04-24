@@ -7,20 +7,21 @@ from lssql.parser import build_file_path, parse_filename, should_skip, split_pat
 from lssql.scanner import scan_directory
 
 
-def run_harvest_mode(path: str, commit: bool, recursive: bool) -> None:
-    results = harvest_directory(path, commit=commit, recursive=recursive)
+def run_harvest_mode(
+    path: str, commit: bool, recursive: bool, max_files: int = 0
+) -> None:
+    results = harvest_directory(
+        path, commit=commit, recursive=recursive, max_files=max_files
+    )
 
     for r in results:
         status = r["status"]
+        directory = f"{r['directory']}/" if recursive else ""
         if status in ("renamed", "dry-run"):
-            if recursive:
-                print(f"  {status:>7} : {r['directory']}/{r['file']}")
-                print(f"       -> : {r['directory']}/{r['new_name']}")
-            else:
-                print(f"  {status:>7} : {r['file']}")
-                print(f"       -> : {r['new_name']}")
+            print(f"  {status:>7} : {directory}{r['file']}")
+            print(f"       -> : {directory}{r['new_name']}")
         elif status == "skipped":
-            print(f"  skipped : {r['file']}  ({r['reason']})")
+            print(f"  skipped : {directory}{r['file']}  ({r['reason']})")
 
     total = len(results)
     actioned = sum(1 for r in results if r["status"] in ("renamed", "dry-run"))
@@ -38,11 +39,13 @@ def run_remove_mode(path: str, commit: bool, recursive: bool) -> None:
 
     for r in results:
         status = r["status"]
+        directory = f"{r['directory']}/" if recursive else ""
         if status in ("restored", "dry-run"):
-            print(f"  {status:>7} : {r['file']}")
-            print(f"        -> : {r['new_name']}")
+            #'restored' is the longest status and 8 char long
+            print(f"  {status:>8} : {directory}{r['file']}")
+            print(f"        -> : {directory}{r['new_name']}")
         elif status == "skipped":
-            print(f"  skipped : {r['file']}  ({r['reason']})")
+            print(f"   skipped : {directory}{r['file']}  ({r['reason']})")
 
     actioned = sum(1 for r in results if r["status"] in ("restored", "dry-run"))
     skipped = sum(1 for r in results if r["status"] == "skipped")
@@ -71,6 +74,13 @@ def main():
         "--remove-all-tags",
         action="store_true",
         help="strip all harvested tags, restore original filenames",
+    )
+    parser.add_argument(
+        "--max",
+        type=int,
+        default=0,
+        metavar="N",
+        help="maximum number of files to harvest",
     )
     parser.add_argument(
         "--dry-run", action="store_true", help="preview only, no changes"
@@ -102,7 +112,7 @@ def main():
         parser.print_help(sys.stderr)
         sys.exit(1)
 
-    if args.recursive and not args.harvest:
+    if args.recursive and not (args.harvest or args.remove_all_tags):
         print(f"'-R' recursive is currently not supported in querying mode\n")
         parser.print_help(sys.stderr)
         sys.exit(1)
@@ -118,7 +128,9 @@ def main():
 
     if args.harvest:
         commit = args.commit and not args.dry_run
-        run_harvest_mode(args.path, commit=commit, recursive=args.recursive)
+        run_harvest_mode(
+            args.path, commit=commit, recursive=args.recursive, max_files=args.max
+        )
         return
 
     # standalone query mode
