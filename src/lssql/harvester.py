@@ -22,6 +22,17 @@ def is_already_harvested(filename: str) -> bool:
     return len(parts[1]) > 0
 
 
+def parse_ext_filter(ext_filter: str) -> set[str]:
+    """
+    parse comma-separated extension string into a set of lowercase dotted extensions.
+    'jpg,png' -> {'.jpg', '.png'}
+    '' -> set()  -- empty means no filter, accept all
+    """
+    if not ext_filter:
+        return set()
+    return {f".{e.strip().lower().lstrip('.')}" for e in ext_filter.split(",")}
+
+
 def build_harvested_filename(filename: str, directory: str = "") -> str:
     stem, ext = os.path.splitext(filename)
     parts = stem.split(SEPARATOR)
@@ -41,7 +52,9 @@ def build_harvested_filename(filename: str, directory: str = "") -> str:
     return f"{original}{SEPARATOR}{tags}{ext}"
 
 
-def harvest_file(directory: str, filename: str, commit: bool) -> dict:
+def harvest_file(
+    directory: str, filename: str, commit: bool, allowed_exts: set = set()
+) -> dict:
     """
     Process a single file. Returns a result dict describing what happened.
     commit=False is dry-run (default, safe).
@@ -60,6 +73,15 @@ def harvest_file(directory: str, filename: str, commit: bool) -> dict:
             "file": filename,
             "status": "skipped",
             "reason": "already harvested",
+        }
+
+    _, ext = os.path.splitext(filename)
+    if allowed_exts and ext.lower() not in allowed_exts:
+        return {
+            "directory": directory,
+            "file": filename,
+            "status": "skipped",
+            "reason": f"extension not in --ext filter",
         }
 
     new_filename = build_harvested_filename(filename, directory)
@@ -84,26 +106,35 @@ def harvest_file(directory: str, filename: str, commit: bool) -> dict:
 
 
 def harvest_directory(
-    path: str, commit: bool, recursive: bool = False, max_files: int = 0
+    path: str,
+    commit: bool,
+    recursive: bool = False,
+    max_files: int = 0,
+    allowed_exts: set = set(),
 ) -> list[dict]:
     """
     Recursively harvest files and returns results.
-    Returned results are recursively extended to its parent.
-    'max_files = 0' means no limit -- zero is falsy in Python so
-        'if max_files' is the clean guard.
+    'max_files = 0' means no limit.
+    'allowed_exts = set()' means no filter, accept all.
     """
     results = []
 
     with os.scandir(path) as entries:
         for entry in entries:
             if max_files and len(results) >= max_files:
-                break
+                non_skipped = sum(r["status"] != "skipped" for r in results)
+                if non_skipped >= max_files:
+                    # Keep only the files that weren’t skipped, then exit the loop
+                    results[:] = [r for r in results if r["status"] != "skipped"]
+                    break
 
             if entry.is_dir(follow_symlinks=False):
                 if recursive:
                     remaining = max_files - len(results) if max_files else 0
                     results.extend(
-                        harvest_directory(entry.path, commit, recursive, remaining)
+                        harvest_directory(
+                            entry.path, commit, recursive, remaining, allowed_exts
+                        )
                     )
                 continue
 
@@ -112,16 +143,14 @@ def harvest_directory(
 
             filename = entry.name
 
-            # skip hidden files
             if filename.startswith("."):
                 continue
 
-            # skip files without extensions
             _, ext = os.path.splitext(filename)
             if not ext:
                 continue
 
-            result = harvest_file(path, filename, commit)
+            result = harvest_file(path, filename, commit, allowed_exts)
             results.append(result)
 
     results.sort(key=lambda d: (d["directory"], d["file"]))

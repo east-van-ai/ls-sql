@@ -11,6 +11,7 @@ from lssql.harvester import (
     harvest_file,
     is_already_harvested,
     is_troublesome_name,
+    parse_ext_filter,
     remove_tags_from_directory,
     remove_tags_from_filename,
 )
@@ -216,6 +217,44 @@ def test_harvest_directory_not_recursive_by_default(tmp_path, freeze_date):
     assert "nested.jpg" not in filenames
 
 
+# -- harvest_directory with --ext --
+
+
+def test_harvest_directory_ext_filter_includes(tmp_path, freeze_date):
+    (tmp_path / "a.jpg").write_text("x")
+    (tmp_path / "b.png").write_text("x")
+    (tmp_path / "c.mp3").write_text("x")
+
+    results = harvest_directory(
+        str(tmp_path), commit=False, allowed_exts={".jpg", ".png"}
+    )
+
+    filenames = [r["file"] for r in results if r["status"] == "dry-run"]
+    assert "a.jpg" in filenames
+    assert "b.png" in filenames
+    assert "c.mp3" not in filenames
+
+
+def test_harvest_directory_ext_filter_skips_with_reason(tmp_path, freeze_date):
+    (tmp_path / "a.mp3").write_text("x")
+
+    results = harvest_directory(str(tmp_path), commit=False, allowed_exts={".jpg"})
+
+    assert results[0]["status"] == "skipped"
+    assert results[0]["reason"] == "extension not in --ext filter"
+
+
+def test_harvest_directory_no_ext_filter_accepts_all(tmp_path, freeze_date):
+    (tmp_path / "a.jpg").write_text("x")
+    (tmp_path / "b.mp3").write_text("x")
+    (tmp_path / "c.zip").write_text("x")
+
+    results = harvest_directory(str(tmp_path), commit=False, allowed_exts=set())
+
+    assert all(r["status"] == "dry-run" for r in results)
+    assert len(results) == 3
+
+
 # -- harvest_directory -- max_files --
 """
 os.scandir, which is used in 'harvest_directory', doesn't guarantee 
@@ -363,3 +402,26 @@ def test_remove_tags_not_recursive_by_default(tmp_path):
     filenames = [r["file"] for r in results]
     assert "top^^^ls:hd=20260421.jpg" in filenames
     assert "nested^^^ls:hd=20260421.jpg" not in filenames
+
+
+# -- parse_ext_filter --
+
+
+def test_parse_ext_filter_single():
+    assert parse_ext_filter("jpg") == {".jpg"}
+
+
+def test_parse_ext_filter_multiple():
+    assert parse_ext_filter("jpg,png") == {".jpg", ".png"}
+
+
+def test_parse_ext_filter_empty():
+    assert parse_ext_filter("") == set()
+
+
+def test_parse_ext_filter_normalizes_case():
+    assert parse_ext_filter("JPG,PNG") == {".jpg", ".png"}
+
+
+def test_parse_ext_filter_handles_dot_prefix():
+    assert parse_ext_filter(".jpg,.png") == {".jpg", ".png"}

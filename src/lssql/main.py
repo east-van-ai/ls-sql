@@ -2,16 +2,28 @@ import argparse
 import os
 import sys
 
-from lssql.harvester import harvest_directory, remove_tags_from_directory
+from lssql.harvester import (
+    harvest_directory,
+    parse_ext_filter,
+    remove_tags_from_directory,
+)
 from lssql.parser import build_file_path, parse_filename, should_skip, split_path
 from lssql.scanner import scan_directory
 
 
 def run_harvest_mode(
-    path: str, commit: bool, recursive: bool, max_files: int = 0
+    path: str,
+    commit: bool,
+    recursive: bool,
+    max_files: int = 0,
+    allowed_exts: set = set(),
 ) -> None:
     results = harvest_directory(
-        path, commit=commit, recursive=recursive, max_files=max_files
+        path,
+        commit=commit,
+        recursive=recursive,
+        max_files=max_files,
+        allowed_exts=allowed_exts,
     )
 
     for r in results:
@@ -83,6 +95,13 @@ def main():
         help="maximum number of files to harvest",
     )
     parser.add_argument(
+        "--ext",
+        type=str,
+        default="",
+        metavar="EXTS",
+        help="comma-separated list of extensions to harvest (e.g. jpg,png)",
+    )
+    parser.add_argument(
         "--dry-run", action="store_true", help="preview only, no changes"
     )
     parser.add_argument("--commit", action="store_true", help="execute renames")
@@ -128,8 +147,13 @@ def main():
 
     if args.harvest:
         commit = args.commit and not args.dry_run
+        allowed_exts = parse_ext_filter(args.ext)
         run_harvest_mode(
-            args.path, commit=commit, recursive=args.recursive, max_files=args.max
+            args.path,
+            commit=commit,
+            recursive=args.recursive,
+            max_files=args.max,
+            allowed_exts=allowed_exts,
         )
         return
 
