@@ -58,3 +58,27 @@ class TestScanDirectory:
         assert row["comment"] == "", "comment is empty hence not harvested"
         assert row["ext"], "file extension is not empty"
         assert row["harvested"] is False, "data is not harvested from 'photo.jpg'"
+
+
+def test_scan_directory_not_recursive_by_default(tmp_path):
+    sub = tmp_path / "sub"
+    sub.mkdir()
+    (tmp_path / "a.jpg").write_text("x")
+    (sub / "b.jpg").write_text("x")
+
+    rows = scan_directory(str(tmp_path))
+    filenames = [r["filename"] for r in rows]
+    assert "a.jpg" in filenames
+    assert "b.jpg" not in filenames
+
+
+def test_scan_directory_recursive(tmp_path):
+    sub = tmp_path / "sub"
+    sub.mkdir()
+    (tmp_path / "a.jpg").write_text("x")
+    (sub / "b.jpg").write_text("x")
+
+    rows = scan_directory(str(tmp_path), recursive=True)
+    filenames = [r["filename"] for r in rows]
+    assert "a.jpg" in filenames
+    assert "b.jpg" in filenames

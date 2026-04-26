@@ -2,15 +2,19 @@ import os
 from lssql.parser import parse_filename, should_skip
 
 
-def scan_directory(directory: str) -> list[dict]:
+def scan_directory(directory: str, recursive: bool = False) -> list[dict]:
     """
     scan a directory and return a list of dictionaries.
-    does not recurse into subdirectories.
+    recursive=False by default
     """
     rows = []
 
     with os.scandir(directory) as entries:
         for entry in entries:
+            if entry.is_dir(follow_symlinks=False):
+                if recursive:
+                    rows.extend(scan_directory(entry.path, recursive=True))
+                continue
 
             if not entry.is_file():
                 # - skip directories.

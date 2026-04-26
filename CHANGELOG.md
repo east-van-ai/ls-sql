@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-04-26
+
+### Added
+
+- `--query "SELECT * WHERE ls:hd = '20260426'"` parsed and evaluated
+- filter `list[dict]` against tag predicates
+- support `IS NOT NULL`, `=`, `CONTAINS`
+- recursive `-R` mode wired in
+
 ## [0.6.4] - 2026-04-25
 
 ### Added

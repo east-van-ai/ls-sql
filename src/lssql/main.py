@@ -8,6 +8,7 @@ from lssql.harvester import (
     remove_tags_from_directory,
 )
 from lssql.parser import build_file_path, parse_filename, should_skip, split_path
+from lssql.query import run_query
 from lssql.scanner import scan_directory
 
 
@@ -81,6 +82,13 @@ def main():
         default="",
         help="(required) target directory: . for the current directory",
     )
+    parser.add_argument(
+        "--query",
+        type=str,
+        default="",
+        metavar="QUERY",
+        help="SQL-like query string: SELECT * WHERE key='value'",
+    )
     parser.add_argument("--harvest", action="store_true", help="harvest mode")
     parser.add_argument(
         "--remove-all-tags",
@@ -131,11 +139,6 @@ def main():
         parser.print_help(sys.stderr)
         sys.exit(1)
 
-    if args.recursive and not (args.harvest or args.remove_all_tags):
-        print(f"'-R' recursive is currently not supported in querying mode\n")
-        parser.print_help(sys.stderr)
-        sys.exit(1)
-
     # standalone remove all tags mode
 
     if args.remove_all_tags:
@@ -159,11 +162,21 @@ def main():
 
     # standalone query mode
 
-    rows = scan_directory(args.path)
-    rows.sort(key=lambda d: d["filename"].lower())
+    rows = scan_directory(args.path, recursive=args.recursive)
 
-    for row in rows:
-        print(build_file_path(row))
+    if args.query:
+        matched, error = run_query(args.query, rows)
+        if error:
+            print(error + "\n", file=sys.stderr)
+            parser.print_help(sys.stderr)
+            sys.exit(1)
+        matched.sort(key=lambda d: d["filename"].lower())
+        for row in matched:
+            print(build_file_path(row))
+    else:
+        rows.sort(key=lambda d: d["filename"].lower())
+        for row in rows:
+            print(build_file_path(row))
 
 
 if __name__ == "__main__":
