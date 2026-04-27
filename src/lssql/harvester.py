@@ -1,5 +1,7 @@
 import os
-from lssql.harvester_ls import content_hash, harvest_date
+from lssql.harvester_au import build_au_tag_string
+from lssql.harvester_ex import build_ex_tag_string
+from lssql.harvester_ls import content_hash, extract_resolution, harvest_date
 
 SEPARATOR = "^^^"
 
@@ -40,12 +42,16 @@ def build_harvested_filename(filename: str, directory: str = "") -> str:
     original = parts[0]
     comment = parts[2] if len(parts) > 2 else ""
 
-    hd_tag = f"ls:hd={harvest_date()}"
-    fh_tag = (
-        f"ls:fh={content_hash(os.path.join(directory, filename))}" if directory else ""
-    )
+    filepath = os.path.join(directory, filename) if directory else ""
 
-    tags = "^".join(filter(None, [hd_tag, fh_tag]))
+    hd_tag = f"ls:hd={harvest_date()}"
+    fh_tag = f"ls:fh={content_hash(filepath)}" if filepath else ""
+    res = extract_resolution(filepath, ext) if filepath else ""
+    res_tag = f"ls:res={res}" if res else ""
+    au_tags = build_au_tag_string(filepath, ext) if filepath else ""
+    ex_tags = build_ex_tag_string(filepath, ext) if filepath else ""
+
+    tags = "^".join(filter(None, [hd_tag, fh_tag, res_tag, au_tags, ex_tags]))
 
     if comment:
         return f"{original}{SEPARATOR}{tags}{SEPARATOR}{comment}{ext}"

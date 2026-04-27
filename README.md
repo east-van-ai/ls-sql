@@ -124,10 +124,12 @@ ls-sql . | awk '{print $1}' | xargs open
 
 ## Supported file types
 
-- PNG -- Stable Diffusion / A1111 generated images
-- JPG -- Photographer EXIF data
-- MP3 -- Music ID3 tags
-- PDF -- planned
+- PNG  -- Portable - Stable Diffusion / A1111 generated images
+- JPG  -- Photographer EXIF data
+- MP3  -- Music ID3 tags
+- GIF  -- Traditional - Graphics Interchange Format
+- WEBP -- Modern - Lossless or Lossy
+- PDF  -- planned
 
 ## Installation
 

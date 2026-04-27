@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-04-27
+
+### Added
+
+- MP3 -- `au:ar`, `au:al` via mutagen
+- JPG -- `ex:dto`, `ex:cam`, `ex:iso`, `ex:ap`, `ex:fl` via piexif
+- Resolution -- `ls:res` for MP3, JPG, PNG, GIF, WEBP
+
 ## [0.8.0] - 2026-04-26
 
 ### Added
