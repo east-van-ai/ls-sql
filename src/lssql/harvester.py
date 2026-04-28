@@ -55,7 +55,7 @@ def build_harvested_filename(filename: str, directory: str = "") -> str:
 
     if comment:
         return f"{original}{SEPARATOR}{tags}{SEPARATOR}{comment}{ext}"
-    return f"{original}{SEPARATOR}{tags}{ext}"
+    return f"{original}{SEPARATOR}{tags}{SEPARATOR}{ext}"
 
 
 def harvest_file(

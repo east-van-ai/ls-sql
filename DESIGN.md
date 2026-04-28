@@ -1,6 +1,44 @@
 # ls-sql design & specification
 
-## Architecture
+## Table of Contents
+
+- [Hatfile](#hatfile)
+- [ls-sql Architecture](#ls-sql-architecture)
+- [Filename specification](#filename-specification)
+- [Tag namespaces](#tag-namespaces)
+- [Album system](#album-system)
+- [Configuration](#configuration)
+- [CLI reference](#cli-reference)
+- [Output style](#output-style)
+- [Implementation](#implementation)
+- [V1 vs V2](#v1-vs-v2)
+- [Edge cases](#edge-cases)
+- [When to stop using ls-sql](#when-to-stop-using-ls-sql)
+- [Out of scope](#out-of-scope)
+- [Granular Details](#granular-details)
+
+---
+
+## Hatfile
+
+A Hatfile is a plain filename that carries structured metadata.
+No sidecar files. No database. No app required.
+
+The metadata lives between `^^^` boundaries, visible to any file browser,
+searchable by Spotlight, greppable from Terminal.
+
+```text
+photo^^^ls:hd=20260428^ls:fh=a3f2c8f91b^ex:cam=canon-r5^^^london-2006.jpg
+^--- original ---^^--- structured metadata ---^^--- human comment ---^
+```
+
+Disposable and rebuildable. The file is the record.
+
+See. [HATFILE](HATFILE.md)
+
+---
+
+## ls-sql Architecture
 
 Two modes, one tool.
 
@@ -17,12 +55,12 @@ The filesystem is the only source of truth. There is no database to maintain, no
 
 ## Filename specification
 
-### Harvest boundary
+### Hatfile metadata and boundary
 
-`^^^` marks the boundary between the original filename and harvested metadata. User-configurable in `ls-sql.yaml`.
+`^^^` marks the boundary between the original filename and Hatfile metadata.
 
 ```text
-{original_filename}^^^{tagged_metadata}^^^{human_comment}.{ext}
+{original_filename}^^^{Hatfile_metadata}^^^{human_comment}.{ext}
 ```
 
 - Left of first `^^^` -- original filename, never modified
@@ -54,29 +92,19 @@ Total target:        <200 chars     well within macOS 255 byte limit
 
 Namespaces keep tags organised and prevent collisions between sources.
 
-```text
-ls:    ls-sql native tags
-sd:    Stable Diffusion / A1111
-ex:    EXIF data
-au:    audio metadata (MP3, AAC, FLAC, whatever comes next)
-ud:    User defined custom tags
-```
+`ls:`    ls-sql native tags
+`ex:`    EXIF data
+`au:`    audio metadata (MP3, AAC, FLAC, whatever comes next)
+`zi:`    zipfile info (.zip files) [ZIP files (`zi:`)](#zip-files-zi)
+`ud:`    User defined custom tags
+`sd:`    Stable Diffusion / A1111 (planed)
 
 ### Tag reference
 
 ```text
 ls:hd    Harvest date (YYYYMMDD)
 ls:fh    File content hash (10 chars SHA256, content fingerprint)
-ls:res   Image resolution (WidthxHeight)
-
-sd:mn    Model name
-sd:mh    Model hash
-sd:sa    Sampler
-sd:sp    Sampling steps
-sd:sh    Schedule type
-sd:cfg   CFG scale
-sd:sd    Seed
-sd:la    Lora
+ls:res   Image resolution (WIDTHxHEIGHT)
 
 ex:dto   Exif DateTimeOriginal
 ex:cam   Camera model, slugified (e.g. canon-r5)
@@ -93,6 +121,19 @@ au:tt    Track title
 au:tn    Track number
 au:yr    Year
 
+zi:cnt   total entry count
+zi:ext   content types
+zi:dot   dot entry count 
+
+sd:mn    Model name
+sd:mh    Model hash
+sd:sa    Sampler
+sd:sp    Sampling steps
+sd:sh    Schedule type
+sd:cfg   CFG scale
+sd:sd    Seed
+sd:la    Lora
+
 ud:*     Anything that does not overlap with ls-sql native tags
 ```
 
@@ -106,61 +147,11 @@ There is no filename hash tag. You cannot take a hash of a filename that already
 
 Albums are implemented entirely through user defined tags. No separate data structure. No database.
 
-### How it works
+[See.](#album-system-and-ud-tags)
 
-An album is a `ud:` tag namespace applied consistently across files. The album name becomes the key. The value is a sequence number.
+### Multi select list
 
-```text
-ud:2006-london=1
-ud:2006-london=2
-ud:2006-london=3
-```
-
-Additional `ud:` tags on the same file carry captions, locations, or any other per-file metadata.
-
-### Album example
-
-```text
-IMG_4520^^^ex:dto=2006:03:15^ls:fh=9b1d4e72ac^ud:2006-london=1^ud:where=palace^^^nice-to-meet-you.jpg
-IMG_4521^^^ex:dto=2006:04:10^ls:fh=c3f8a12b91^ud:2006-london=2^ud:where=thames^^^is-it-raining.jpg
-IMG_4522^^^ex:dto=2006:04:15^ls:fh=a3f2c8f91b^ud:2006-london=3^ud:where=london-eye^^^you-might-melt-in-rain.jpg
-IMG_4523^^^ex:dto=2006:11:15^ls:fh=d4e9b23c82^ud:2006-london=4^ud:where=oxo-building^^^it-was-like-a-movie.jpg
-```
-
-Query an album:
-
-```bash
-ls-sql --query "SELECT * WHERE ud:2006-london IS NOT NULL" ~/photos
-ls-sql --query "SELECT * WHERE ud:2006-london IS NOT NULL" ~/photos | sort
-```
-
-### Album rules
-
-- Album name is the `ud:` key. Sequence value is an integer starting at 1.
-- One file can belong to multiple albums -- just add more `ud:` tags.
-- Albums have no metadata of their own. The filename is the record.
-- Sequence gaps are allowed. Order is explicit and human-controlled.
-
-## Repurpose Album tags for multi select list
-
-### Multi-value tags
-
-`ud:` values can be comma-separated strings. No special syntax. The harvester treats them as plain text. The meaning is yours.
-
-```text
-roast-beef^^^ls:fh=9b1d4e72ac^ud:ingredients=beef,garlic,carrot^^^at-mrs-johnsons.jpg
-carbonara^^^ls:fh=a3f2c8f91b^ud:ingredients=pork,garlic,pepper^^^italian-night.jpg
-prime-rib^^^ls:fh=c3f8a12b91^ud:ingredients=beef,potato,asparagus^^^my-birthday-dinner.jpg
-hamburger^^^ls:fh=d4e9b23c82^ud:ingredients=beef,tomato,lettuce^^^road-trip-2015.jpg
-```
-
-Query by ingredient:
-
-```bash
-ls-sql --query "SELECT * WHERE ud:ingredients CONTAINS 'beef'" ~/recipes
-```
-
-Same pattern works for tags, moods, colours, keywords -- anything you'd reach for a checkbox list. One tag key, comma-separated values, no schema required.
+[See.](#repurpose-album-tags-for-multi-select-list)
 
 ---
 
@@ -169,8 +160,6 @@ Same pattern works for tags, moods, colours, keywords -- anything you'd reach fo
 `ls-sql.yaml` lives in the target directory or `~/.config/ls-sql/ls-sql.yaml`.
 
 ```yaml
-separator: "^^^"
-
 fields:
   ls:
     - fh
@@ -196,23 +185,37 @@ User picks which fields to harvest. Order in config determines order in filename
 
 ## CLI reference
 
+### [Query modes](#--harvest-mode)
+
 ```bash
-# Query modes
 ls-sql .                                              # fresh from filesystem
 ls-sql -R .                                           # recursive
 ls-sql --query "SELECT * WHERE sd:mn='sdxl'" .        # filtered query
 ls-sql --query "SELECT * WHERE ud:2006-london IS NOT NULL" ~/photos
 ls-sql --query "SELECT filename, directory" .         # select filename and directory
 ls-sql --query "SELECT pwd-directory-filename" .      # absolute path of the file and its name combined
+```
 
-# Harvest modes
+### [Harvest modes](#--harvest-mode)
+
+```bash
 ls-sql --harvest --dry-run .                          # preview renames, no changes
 ls-sql --harvest --commit .                           # execute renames
 ls-sql --harvest --commit -R .                        # recursive harvest
+```
 
-# Reversal
+### [Reversal modes](#--remove-all-tags-mode)
+
+```bash
 ls-sql --remove-all-tags --dry-run ~/photos           # preview strip
 ls-sql --remove-all-tags --commit ~/photos            # restore original filenames
+```
+
+### [Verify modes](#--verify-mode)
+
+```bash
+ls-sql --verify .                                     # check current directory
+ls-sql --verify -R ~/photos                           # recursive verify
 ```
 
 ### Flag rules
@@ -229,7 +232,7 @@ ls-sql --remove-all-tags --commit ~/photos            # restore original filenam
 Output prints full path, pipeable, composable result.
 
 ```text
-/Users/go/SD/outputs/00234^^^sd:mn=sdxl^ls:fh=a3f2c8f91b.png
+/Users/go/SD/outputs/00234^^^sd:mn=sdxl^ls:fh=a3f2c8f91b^^^.png
 /Users/go/SD/outputs/00891^^^sd:mn=flux^ls:fh=9b1d4e72ac^^^dog-in-tuxedo.png
 ```
 
@@ -273,7 +276,7 @@ No database dependency. No ORM. No migration files.
 ```toml
 [project]
 name = "ls-sql"
-version = "0.7.0"
+version = "0.7.1"
 requires-python = ">=3.14"
 
 [project.scripts]
@@ -303,7 +306,7 @@ ls-sql = "lssql.cli:main"
 
 When there is doubt, warn and skip/halt the operation.
 
-- **`^^^` already in filename** -- harvester skips and warns. User resolves via config.
+- **Caret `^` already in filename** -- harvester skips and warns.
 - **Filename exceeds 200 chars** -- harvester warns before renaming, skips file.
 - **File already harvested** -- harvester detects `^^^` and skips. Idempotent.
 - **Duplicate files** -- `ls:fh` catches identical content regardless of filename.
@@ -327,3 +330,233 @@ Congratulations. Go get proper gear. 🎣
 - Real-time file watching. Use periodic harvest or cron.
 - GUI.
 - SQLite. Filenames are the database.
+
+---
+
+## Granular Details
+
+### `--query` mode
+
+Scan a directory and filter files using a SQL-like query against harvested tags in filenames. No database. Reads filenames directly.
+
+```bash
+ls-sql .
+ls-sql -R .
+ls-sql --query "SELECT * WHERE sd:mn='sdxl'" .
+ls-sql --query "SELECT * WHERE zi:ext CONTAINS 'exe'" .
+ls-sql --query "SELECT * WHERE ud:2006-london IS NOT NULL" ~/photos
+```
+
+Supports `=`, `CONTAINS`, `IS NOT NULL`. Output is full path per line, pipeable.
+
+---
+
+### `--harvest` mode
+
+Read file metadata and encode it as tagged key-value pairs into the filename. Dry-run by default. Pass `--commit` to execute. Idempotent -- already harvested files are skipped.
+
+```bash
+ls-sql --harvest --dry-run .
+ls-sql --harvest --commit .
+ls-sql --harvest --commit -R ~/photos
+ls-sql --harvest --commit --ext jpg,png .
+ls-sql --harvest --commit --max 50 .
+```
+
+Supports `--ext` to filter by extension, `--max` to limit files per run, `-R` for recursive.
+
+---
+
+### `--remove-all-tags` mode
+
+Strip all harvested tags from filenames and restore originals. Human comments (right of second `^^^`) are preserved. Dry-run by default. Pass `--commit` to execute.
+
+```bash
+ls-sql --remove-all-tags --dry-run ~/photos
+ls-sql --remove-all-tags --commit ~/photos
+ls-sql --remove-all-tags --commit -R ~/photos
+```
+
+Fully reversible. The original filename left of the first `^^^` is never modified during harvest, so restoration is lossless.
+
+---
+
+### `--verify` mode
+
+Compares the `ls:fh` hash stored in the filename against a freshly computed
+hash of the file's current content. A mismatch means the file has changed
+since it was harvested -- corrupted, modified, or replaced.
+
+Works on any harvested file. ZIP or otherwise.
+
+```bash
+ls-sql --verify .          # check current directory
+ls-sql --verify -R ~/photos  # recursive verify
+```
+
+#### Output style
+
+```text
+     ok : photo^^^ls:fh=a3f2c8f91b.jpg
+CHANGED : archive^^^ls:fh=deadbeef12.zip    (expected: deadbeef12, got: 9f4c21a837)
+skipped : plain-photo.jpg    (not harvested)
+```
+
+#### Notes
+
+- Files without `ls:fh` in their filename are skipped with a reason.
+- Exit code is non-zero if any mismatch is found -- scriptable.
+- Read-only mode. Never touches files.
+
+---
+
+### EXIF files (`ex:`)
+
+EXIF metadata embedded in JPG files by cameras and photo editors.
+Read via `piexif`. No extraction required.
+
+```text
+ex:dto   DateTimeOriginal (e.g. 2024:07:12)
+ex:cam   Camera model, slugified (e.g. canon-r5)
+ex:fl    Focal length (e.g. 50mm)
+ex:ap    Aperture (e.g. f2.8)
+ex:iso   ISO value
+ex:ss    Shutter speed (e.g. 1-500)
+ex:lat   GPS latitude
+ex:lon   GPS longitude
+```
+
+---
+
+### Audio files (`au:`)
+
+ID3 and audio metadata from MP3 files.
+Read via `mutagen`. No extraction required.
+
+```text
+au:ar    Artist
+au:al    Album
+au:tt    Track title
+au:tn    Track number
+au:yr    Year
+```
+
+---
+
+### ZIP files (`zi:`)
+
+ZIP files are containers. The metadata worth capturing is what's inside,
+not the compression. The ZIP format stores its central directory separately
+from compressed data, so filenames are readable without decompression.
+No extraction required.
+
+```text
+zi:cnt   total entry count (files and directories, including dot entries)
+zi:ext   content types, comma-separated extensions, no dots (e.g. jpg,png,txt)
+         directories are excluded from ext -- extensions only make sense for files
+zi:dot   dot entry count (files and directories whose name starts with a dot)
+         only present when > 0 -- presence alone is the signal
+```
+
+#### Example
+
+```text
+archive^^^ls:hd=20260428^ls:fh=a3f2c8f91b^zi:cnt=42^zi:ext=jpg,png,txt^zi:dot=3.zip
+```
+
+#### Query examples
+
+```bash
+ls-sql --query "SELECT * WHERE zi:dot IS NOT NULL" .      # ZIPs with dot entries
+ls-sql --query "SELECT * WHERE zi:ext CONTAINS 'exe'" .   # ZIPs with executables
+ls-sql --query "SELECT * WHERE zi:cnt IS NOT NULL" .      # any harvested ZIP
+```
+
+---
+
+### Stable Diffusion (`sd:`)
+
+Generation parameters written into PNG metadata by A1111 and compatible tools.
+Read via `Pillow` PNGInfo. No extraction required.
+Opt-in via config. Not harvested by default.
+
+```text
+sd:mn    Model name
+sd:mh    Model hash
+sd:sa    Sampler
+sd:sp    Sampling steps
+sd:sh    Schedule type
+sd:cfg   CFG scale
+sd:sd    Seed
+sd:la    LoRA
+```
+
+---
+
+### User Defined (`ud:`)
+
+Anything that does not overlap with ls-sql native tags
+
+---
+
+#### Album system and `ud:` tags
+
+Albums are implemented entirely through user defined tags. No separate data structure. No database.
+
+##### How it works
+
+An album is a `ud:` tag namespace applied consistently across files. The album name becomes the key. The value is a sequence number.
+
+```text
+ud:2006-london=1
+ud:2006-london=2
+ud:2006-london=3
+```
+
+Additional `ud:` tags on the same file carry captions, locations, or any other per-file metadata.
+
+##### Album example
+
+```text
+IMG_4520^^^ex:dto=2006:03:15^ls:fh=9b1d4e72ac^ud:2006-london=1^ud:where=palace^^^nice-to-meet-you.jpg
+IMG_4521^^^ex:dto=2006:04:10^ls:fh=c3f8a12b91^ud:2006-london=2^ud:where=thames^^^is-it-raining.jpg
+IMG_4522^^^ex:dto=2006:04:15^ls:fh=a3f2c8f91b^ud:2006-london=3^ud:where=london-eye^^^you-might-melt-in-rain.jpg
+IMG_4523^^^ex:dto=2006:11:15^ls:fh=d4e9b23c82^ud:2006-london=4^ud:where=oxo-building^^^it-was-like-a-movie.jpg
+```
+
+Query an album:
+
+```bash
+ls-sql --query "SELECT * WHERE ud:2006-london IS NOT NULL" ~/photos
+ls-sql --query "SELECT * WHERE ud:2006-london IS NOT NULL" ~/photos | sort
+```
+
+##### Album rules
+
+- Album name is the `ud:` key. Sequence value is an integer starting at 1.
+- One file can belong to multiple albums -- just add more `ud:` tags.
+- Albums have no metadata of their own. The filename is the record.
+- Sequence gaps are allowed. Order is explicit and human-controlled.
+
+#### Repurpose Album tags for multi select list
+
+##### Multi-value tags
+
+`ud:` values can be comma-separated strings. No special syntax. The harvester treats them as plain text. The meaning is yours.
+
+```text
+roast-beef^^^ls:fh=9b1d4e72ac^ud:ingredients=beef,garlic,carrot^^^at-mrs-johnsons.jpg
+carbonara^^^ls:fh=a3f2c8f91b^ud:ingredients=pork,garlic,pepper^^^italian-night.jpg
+prime-rib^^^ls:fh=c3f8a12b91^ud:ingredients=beef,potato,asparagus^^^my-birthday-dinner.jpg
+hamburger^^^ls:fh=d4e9b23c82^ud:ingredients=beef,tomato,lettuce^^^road-trip-2015.jpg
+```
+
+Query by ingredient:
+
+```bash
+ls-sql --query "SELECT * WHERE ud:ingredients CONTAINS 'beef'" ~/recipes
+```
+
+Same pattern works for tags, moods, colours, keywords -- anything you'd reach for a checkbox list. One tag key, comma-separated values, no schema required.
+
+---

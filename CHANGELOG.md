@@ -6,6 +6,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-04-28
+
+### Added
+
+- add `HATFILE.md` -- the Hatfile specification
+
+### Changed
+
+- update `DESIGN.md`
+  - trailing hat always -- new filenames are always appended with  `^^^` even with no comment
+  - remove stale config section
+  - introduce: Hatfile standard decision, Granular Details section, Table of Contents
+
+- revise ROADMAP -- split v0.7.1 into subsequent patches
+
 ## [0.7.0] - 2026-04-27
 
 ### Added
