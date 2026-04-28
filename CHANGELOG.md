@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.7.2] - 2026-04-28
+
+### Changed
+
+- rename `main.py` to `cli.py`
+- move utility functions and constants to `harvester_util.py`
+- revise `DESIGN.md` for v1 scope
+
 ## [0.7.1] - 2026-04-28
 
 ### Added

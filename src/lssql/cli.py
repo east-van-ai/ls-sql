@@ -2,11 +2,8 @@ import argparse
 import os
 import sys
 
-from lssql.harvester import (
-    harvest_directory,
-    parse_ext_filter,
-    remove_tags_from_directory,
-)
+from lssql.harvester import harvest_directory, remove_tags_from_directory
+from lssql.harvester_util import parse_ext_filter
 from lssql.parser import build_file_path, parse_filename, should_skip, split_path
 from lssql.query import run_query
 from lssql.scanner import scan_directory

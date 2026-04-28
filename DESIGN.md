@@ -34,7 +34,7 @@ photo^^^ls:hd=20260428^ls:fh=a3f2c8f91b^ex:cam=canon-r5^^^london-2006.jpg
 
 Disposable and rebuildable. The file is the record.
 
-See. [HATFILE](HATFILE.md)
+See [HATFILE.md](HATFILE.md)
 
 ---
 
@@ -43,13 +43,15 @@ See. [HATFILE](HATFILE.md)
 Two modes, one tool.
 
 ```bash
-ls-sql --harvest  # harvest mode - reads files, renames filenames
-ls-sql            # query mode   - reads filesystem directly, outputs ls-style
+ls-sql --harvest  # harvest mode -- reads files, renames filenames
+ls-sql            # query mode   -- reads filesystem directly, outputs ls-style
 ```
 
-Harvester touches files. Querier never does.
+Harvester touches files. Querier never does. That distinction is absolute.
 
-The filesystem is the only source of truth. There is no database to maintain, no cache to invalidate, no records to go stale. Everything ls-sql knows lives in filenames.
+The filesystem is the only source of truth. There is no database to maintain,
+no cache to invalidate, no records to go stale. Everything ls-sql knows lives
+in filenames.
 
 ---
 
@@ -58,6 +60,7 @@ The filesystem is the only source of truth. There is no database to maintain, no
 ### Hatfile metadata and boundary
 
 `^^^` marks the boundary between the original filename and Hatfile metadata.
+This is the Hatfile standard. It is not configurable.
 
 ```text
 {original_filename}^^^{Hatfile_metadata}^^^{human_comment}.{ext}
@@ -66,14 +69,16 @@ The filesystem is the only source of truth. There is no database to maintain, no
 - Left of first `^^^` -- original filename, never modified
 - Middle -- tagged key-value pairs
 - Right of second `^^^` -- free human comment, optional
+- The trailing `^^^` is always present, even without a comment
 - Target: under 200 characters total
 
 ### Tagged key-value format
 
-All metadata uses `namespace:key=value` pairs separated by `^`. Order does not matter. Missing fields are skipped cleanly.
+All metadata uses `namespace:key=value` pairs separated by `^`. Order does not
+matter. Missing fields are skipped cleanly.
 
 ```text
-sd:mn=sdxl^sd:cfg=7.5^ex:dto=2024:07:12^ls:fh=a3f2c8f91b^ls:res=512x768
+ex:dto=2024:07:12^ls:fh=a3f2c8f91b^ls:res=512x768
 ```
 
 ### Character budget
@@ -92,12 +97,14 @@ Total target:        <200 chars     well within macOS 255 byte limit
 
 Namespaces keep tags organised and prevent collisions between sources.
 
-`ls:`    ls-sql native tags
-`ex:`    EXIF data
-`au:`    audio metadata (MP3, AAC, FLAC, whatever comes next)
-`zi:`    zipfile info (.zip files) [ZIP files (`zi:`)](#zip-files-zi)
-`ud:`    User defined custom tags
-`sd:`    Stable Diffusion / A1111 (planed)
+```text
+ls:    ls-sql native tags
+ex:    EXIF data
+au:    audio metadata (MP3, AAC, FLAC, whatever comes next)
+zi:    zipfile info (.zip files)
+ud:    user defined custom tags
+sd:    Stable Diffusion / A1111 (planned -- v1.1)
+```
 
 ### Tag reference
 
@@ -112,7 +119,7 @@ ex:fl    Focal length (e.g. 50mm)
 ex:ap    Aperture (e.g. f2.8)
 ex:iso   ISO value
 ex:ss    Shutter speed (e.g. 1-500)
-ex:lat   Exif GPSLatitude  
+ex:lat   Exif GPSLatitude
 ex:lon   Exif GPSLongitude
 
 au:ar    Artist
@@ -123,99 +130,80 @@ au:yr    Year
 
 zi:cnt   total entry count
 zi:ext   content types
-zi:dot   dot entry count 
+zi:dot   dot entry count
 
-sd:mn    Model name
-sd:mh    Model hash
-sd:sa    Sampler
-sd:sp    Sampling steps
-sd:sh    Schedule type
-sd:cfg   CFG scale
-sd:sd    Seed
-sd:la    Lora
+sd:mn    Model name         -- v1.1
+sd:mh    Model hash         -- v1.1
+sd:sa    Sampler            -- v1.1
+sd:sp    Sampling steps     -- v1.1
+sd:sh    Schedule type      -- v1.1
+sd:cfg   CFG scale          -- v1.1
+sd:sd    Seed               -- v1.1
+sd:la    LoRA               -- v1.1
 
 ud:*     Anything that does not overlap with ls-sql native tags
 ```
 
 ### Note on name hash
 
-There is no filename hash tag. You cannot take a hash of a filename that already contains a hash. The result would never match anything on rebuild. The file content hash (`ls:fh`) is the stable fingerprint. That is enough.
+There is no filename hash tag. You cannot take a hash of a filename that
+already contains a hash -- the result would never match anything on rebuild.
+The file content hash (`ls:fh`) is the stable fingerprint. That is enough.
 
 ---
 
 ## Album system
 
-Albums are implemented entirely through user defined tags. No separate data structure. No database.
+Albums are implemented entirely through user defined tags. No separate data
+structure. No database.
 
-[See.](#album-system-and-ud-tags)
+[See Granular Details.](#album-system-and-ud-tags)
 
 ### Multi select list
 
-[See.](#repurpose-album-tags-for-multi-select-list)
+[See Granular Details.](#repurpose-album-tags-for-multi-select-list)
 
 ---
 
 ## Configuration
 
-`ls-sql.yaml` lives in the target directory or `~/.config/ls-sql/ls-sql.yaml`.
+Configuration is deferred to v1.1. ls-sql v1 uses sensible hardcoded defaults
+and requires no configuration file to operate.
 
-```yaml
-fields:
-  ls:
-    - fh
-    - res
-    - hd
-
-  sd:
-    - mn
-    - cfg
-    - sa
-
-  exif:
-    - cam
-    - iso
-    - ss
-
-max_filename_chars: 200
-```
-
-User picks which fields to harvest. Order in config determines order in filename.
+- Harvest boundary: `^^^` -- the Hatfile standard, not configurable
+- Max filename length: 200 characters
+- Fields harvested: all available for the file type
 
 ---
 
 ## CLI reference
 
-### [Query modes](#--harvest-mode)
+### Query mode
 
 ```bash
-ls-sql .                                              # fresh from filesystem
-ls-sql -R .                                           # recursive
-ls-sql --query "SELECT * WHERE sd:mn='sdxl'" .        # filtered query
+ls-sql .                                               # fresh from filesystem
+ls-sql -R .                                            # recursive
+ls-sql --query "SELECT * WHERE sd:mn='sdxl'" .         # filtered query
 ls-sql --query "SELECT * WHERE ud:2006-london IS NOT NULL" ~/photos
-ls-sql --query "SELECT filename, directory" .         # select filename and directory
-ls-sql --query "SELECT pwd-directory-filename" .      # absolute path of the file and its name combined
+ls-sql --query "SELECT * WHERE zi:ext CONTAINS 'exe'" .
 ```
 
-### [Harvest modes](#--harvest-mode)
+### Harvest mode
 
 ```bash
-ls-sql --harvest --dry-run .                          # preview renames, no changes
-ls-sql --harvest --commit .                           # execute renames
-ls-sql --harvest --commit -R .                        # recursive harvest
+ls-sql --harvest --dry-run .                           # preview renames, no changes
+ls-sql --harvest --commit .                            # execute renames
+ls-sql --harvest --commit -R .                         # recursive harvest
+ls-sql --harvest --commit --ext jpg,png .              # filter by extension
+ls-sql --harvest --commit --max 50 .                   # limit files per run
 ```
 
-### [Reversal modes](#--remove-all-tags-mode)
+### Reversal mode
 
 ```bash
-ls-sql --remove-all-tags --dry-run ~/photos           # preview strip
-ls-sql --remove-all-tags --commit ~/photos            # restore original filenames
-```
-
-### [Verify modes](#--verify-mode)
-
-```bash
-ls-sql --verify .                                     # check current directory
-ls-sql --verify -R ~/photos                           # recursive verify
+ls-sql --remove-all-tags --dry-run ~/photos            # preview strip
+ls-sql --remove-all-tags --commit ~/photos             # restore original filenames
+ls-sql --remove-all-tags --commit -R ~/photos          # recursive
 ```
 
 ### Flag rules
@@ -223,7 +211,8 @@ ls-sql --verify -R ~/photos                           # recursive verify
 - `--harvest` without `--dry-run` or `--commit` defaults to `--dry-run`. Safe always.
 - `-R` is recursive, same as `ls -R`.
 - `--query` filters output. `FROM` clause is omitted -- there is only one thing to query.
-- `--remove-all-tags` strips everything between the right of first `^^^` and the second. Fully reversible. This does not remove the right of the second closing `^^^`.
+- `--remove-all-tags` strips everything between the first and second `^^^`. The human
+  comment right of the second `^^^` is preserved. Fully reversible.
 
 ---
 
@@ -250,17 +239,17 @@ ls-sql . | awk '{print $1}' | xargs open
 
 ### Language
 
-Python 3.x. Packaged with `pyproject.toml` for `pip install` and Homebrew cask distribution.
+Python 3.x. Packaged with `pyproject.toml` for `pip install` and Homebrew
+cask distribution.
 
 ### Key dependencies
 
 ```text
-Pillow          PNG metadata extraction (A1111 PNGInfo)
+Pillow          image resolution extraction (JPG, PNG, GIF, WEBP)
 piexif          EXIF reading for JPG
 mutagen         ID3/MP3 metadata extraction
-pyyaml          Config file parsing
-hashlib         SHA256 for file content hash
-os.scandir()    Fast directory traversal
+hashlib         SHA256 for file content hash (stdlib)
+os.scandir()    fast directory traversal (stdlib)
 ```
 
 No database dependency. No ORM. No migration files.
@@ -276,7 +265,7 @@ No database dependency. No ORM. No migration files.
 ```toml
 [project]
 name = "ls-sql"
-version = "0.7.1"
+version = "0.7.2"
 requires-python = ">=3.14"
 
 [project.scripts]
@@ -289,10 +278,11 @@ ls-sql = "lssql.cli:main"
 
 ### V1 -- ship it
 
-- Hard metadata harvested automatically from PNG / EXIF
+- Metadata harvested automatically from JPG, PNG, GIF, WEBP, MP3
 - Human comment appended manually to filename
 - User defined tags for albums, captions, sequences
-- No database, no cache, no dependencies beyond Python
+- Query engine -- `SELECT * WHERE` with `=`, `CONTAINS`, `IS NOT NULL`, `IS NULL`
+- No database, no cache
 
 ### V2 -- full fidelity
 
@@ -304,9 +294,9 @@ ls-sql = "lssql.cli:main"
 
 ## Edge cases
 
-When there is doubt, warn and skip/halt the operation.
+When in doubt, warn and skip. Never guess.
 
-- **Caret `^` already in filename** -- harvester skips and warns.
+- **`^^^` already in original stem** -- harvester skips and warns.
 - **Filename exceeds 200 chars** -- harvester warns before renaming, skips file.
 - **File already harvested** -- harvester detects `^^^` and skips. Idempotent.
 - **Duplicate files** -- `ls:fh` catches identical content regardless of filename.
@@ -337,7 +327,8 @@ Congratulations. Go get proper gear. 🎣
 
 ### `--query` mode
 
-Scan a directory and filter files using a SQL-like query against harvested tags in filenames. No database. Reads filenames directly.
+Scan a directory and filter files using a SQL-like query against harvested tags
+in filenames. No database. Reads filenames directly.
 
 ```bash
 ls-sql .
@@ -345,15 +336,19 @@ ls-sql -R .
 ls-sql --query "SELECT * WHERE sd:mn='sdxl'" .
 ls-sql --query "SELECT * WHERE zi:ext CONTAINS 'exe'" .
 ls-sql --query "SELECT * WHERE ud:2006-london IS NOT NULL" ~/photos
+ls-sql --query "SELECT * WHERE ls:fh IS NULL" .
 ```
 
-Supports `=`, `CONTAINS`, `IS NOT NULL`. Output is full path per line, pipeable.
+Supports `=`, `CONTAINS`, `IS NOT NULL`, `IS NULL`. Output is full path per
+line, pipeable.
 
 ---
 
 ### `--harvest` mode
 
-Read file metadata and encode it as tagged key-value pairs into the filename. Dry-run by default. Pass `--commit` to execute. Idempotent -- already harvested files are skipped.
+Read file metadata and encode it as tagged key-value pairs into the filename.
+Dry-run by default. Pass `--commit` to execute. Idempotent -- already harvested
+files are skipped.
 
 ```bash
 ls-sql --harvest --dry-run .
@@ -363,13 +358,16 @@ ls-sql --harvest --commit --ext jpg,png .
 ls-sql --harvest --commit --max 50 .
 ```
 
-Supports `--ext` to filter by extension, `--max` to limit files per run, `-R` for recursive.
+Supports `--ext` to filter by extension, `--max` to limit files per run,
+`-R` for recursive.
 
 ---
 
 ### `--remove-all-tags` mode
 
-Strip all harvested tags from filenames and restore originals. Human comments (right of second `^^^`) are preserved. Dry-run by default. Pass `--commit` to execute.
+Strip all harvested tags from filenames and restore originals. Human comments
+(right of second `^^^`) are preserved. Dry-run by default. Pass `--commit`
+to execute.
 
 ```bash
 ls-sql --remove-all-tags --dry-run ~/photos
@@ -377,36 +375,8 @@ ls-sql --remove-all-tags --commit ~/photos
 ls-sql --remove-all-tags --commit -R ~/photos
 ```
 
-Fully reversible. The original filename left of the first `^^^` is never modified during harvest, so restoration is lossless.
-
----
-
-### `--verify` mode
-
-Compares the `ls:fh` hash stored in the filename against a freshly computed
-hash of the file's current content. A mismatch means the file has changed
-since it was harvested -- corrupted, modified, or replaced.
-
-Works on any harvested file. ZIP or otherwise.
-
-```bash
-ls-sql --verify .          # check current directory
-ls-sql --verify -R ~/photos  # recursive verify
-```
-
-#### Output style
-
-```text
-     ok : photo^^^ls:fh=a3f2c8f91b.jpg
-CHANGED : archive^^^ls:fh=deadbeef12.zip    (expected: deadbeef12, got: 9f4c21a837)
-skipped : plain-photo.jpg    (not harvested)
-```
-
-#### Notes
-
-- Files without `ls:fh` in their filename are skipped with a reason.
-- Exit code is non-zero if any mismatch is found -- scriptable.
-- Read-only mode. Never touches files.
+Fully reversible. The original filename left of the first `^^^` is never
+modified during harvest, so restoration is lossless.
 
 ---
 
@@ -461,7 +431,7 @@ zi:dot   dot entry count (files and directories whose name starts with a dot)
 #### Example
 
 ```text
-archive^^^ls:hd=20260428^ls:fh=a3f2c8f91b^zi:cnt=42^zi:ext=jpg,png,txt^zi:dot=3.zip
+archive^^^ls:hd=20260428^ls:fh=a3f2c8f91b^zi:cnt=42^zi:ext=jpg,png,txt^zi:dot=3^^^.zip
 ```
 
 #### Query examples
@@ -474,11 +444,10 @@ ls-sql --query "SELECT * WHERE zi:cnt IS NOT NULL" .      # any harvested ZIP
 
 ---
 
-### Stable Diffusion (`sd:`)
+### Stable Diffusion (`sd:`) -- v1.1
 
 Generation parameters written into PNG metadata by A1111 and compatible tools.
-Read via `Pillow` PNGInfo. No extraction required.
-Opt-in via config. Not harvested by default.
+Read via `Pillow` PNGInfo. Planned for v1.1. Not harvested in v1.
 
 ```text
 sd:mn    Model name
@@ -495,17 +464,19 @@ sd:la    LoRA
 
 ### User Defined (`ud:`)
 
-Anything that does not overlap with ls-sql native tags
+Anything that does not overlap with ls-sql native tags.
 
 ---
 
 #### Album system and `ud:` tags
 
-Albums are implemented entirely through user defined tags. No separate data structure. No database.
+Albums are implemented entirely through user defined tags. No separate data
+structure. No database.
 
 ##### How it works
 
-An album is a `ud:` tag namespace applied consistently across files. The album name becomes the key. The value is a sequence number.
+An album is a `ud:` tag applied consistently across files. The album name
+becomes the key. The value is a sequence number.
 
 ```text
 ud:2006-london=1
@@ -513,7 +484,8 @@ ud:2006-london=2
 ud:2006-london=3
 ```
 
-Additional `ud:` tags on the same file carry captions, locations, or any other per-file metadata.
+Additional `ud:` tags on the same file carry captions, locations, or any other
+per-file metadata.
 
 ##### Album example
 
@@ -538,11 +510,12 @@ ls-sql --query "SELECT * WHERE ud:2006-london IS NOT NULL" ~/photos | sort
 - Albums have no metadata of their own. The filename is the record.
 - Sequence gaps are allowed. Order is explicit and human-controlled.
 
+---
+
 #### Repurpose Album tags for multi select list
 
-##### Multi-value tags
-
-`ud:` values can be comma-separated strings. No special syntax. The harvester treats them as plain text. The meaning is yours.
+`ud:` values can be comma-separated strings. No special syntax. The harvester
+treats them as plain text. The meaning is yours.
 
 ```text
 roast-beef^^^ls:fh=9b1d4e72ac^ud:ingredients=beef,garlic,carrot^^^at-mrs-johnsons.jpg
@@ -557,6 +530,7 @@ Query by ingredient:
 ls-sql --query "SELECT * WHERE ud:ingredients CONTAINS 'beef'" ~/recipes
 ```
 
-Same pattern works for tags, moods, colours, keywords -- anything you'd reach for a checkbox list. One tag key, comma-separated values, no schema required.
+Same pattern works for tags, moods, colours, keywords -- anything you'd reach
+for a checkbox list. One tag key, comma-separated values, no schema required.
 
 ---

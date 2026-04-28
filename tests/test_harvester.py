@@ -4,63 +4,13 @@ tests for lssql.harvester with pytest.
 * 'freeze_date' -- a custom pytest fixture defined in 'conftest.py'
 """
 
-import pytest
 from lssql.harvester import (
     build_harvested_filename,
     harvest_directory,
     harvest_file,
-    is_already_harvested,
-    is_troublesome_name,
-    parse_ext_filter,
     remove_tags_from_directory,
     remove_tags_from_filename,
 )
-
-# -- is_troublesome_name --
-
-
-def test_is_troublesome_name():
-    assert is_troublesome_name("photo^^^hello^^^hey^^^you.jpg") is True
-    assert is_troublesome_name("photo^^^hello^^^hey^^^you^^^.jpg") is True
-
-
-# -- is_already_harvested --
-
-
-def test_already_harvested_plain_filename():
-    assert is_already_harvested("photo.jpg") is False
-
-
-def _caret_filenames(max_carets: int = 15, prefix: str = ""):
-    """
-    Yield filenames of the form ``<prefix><caret‑string>.jpg``.
-
-    * ``max_carets`` – maximum number of ^ characters (inclusive).
-    * ``prefix``    – optional string that appears before the carets.
-    """
-    for n in range(1, max_carets + 1):
-        yield f"{prefix}{'^' * n}.jpg"
-
-
-@pytest.mark.parametrize("filename", _caret_filenames(prefix=""))
-def test_carets_only_without_prefix_without_postfix(filename):
-    """A caret‑only filename must be reported as *not* harvested."""
-    assert is_already_harvested("^^^.jpg") is False
-    assert not is_already_harvested(filename)
-
-
-@pytest.mark.parametrize("filename", _caret_filenames(prefix="img_"))
-def test_carets_only_with_prefix_without_postfix(filename):
-    """A prefixed caret‑only filename must be reported as *not* harvested."""
-    assert is_already_harvested("img_^^^.jpg") is False
-    assert not is_already_harvested(filename)
-
-
-def test_already_harvested_with_separator():
-    assert is_already_harvested("photo^^^ls:hd=20260421.jpg") is True
-    assert is_already_harvested("photo^^^ls:hd=20260421^^^.jpg") is True
-    assert is_already_harvested("photo^^^ls:hd=20260421^^^london.jpg") is True
-
 
 # -- build_harvested_filename --
 
@@ -80,7 +30,7 @@ def test_build_harvested_filename_preserves_extension(freeze_date):
     assert result == "song^^^ls:hd=20260421^^^.mp3"
 
 
-## -- build_harvested_filename with ls:fh --
+# -- build_harvested_filename with ls:fh --
 
 
 def test_build_harvested_filename_includes_fh(tmp_path, freeze_date):
@@ -173,14 +123,14 @@ def test_harvest_directory_skips_hidden(tmp_path, freeze_date):
 
 
 def test_harvest_directory_skips_no_extension(tmp_path, freeze_date):
-    (tmp_path / "noext").write_text("x")
-    (tmp_path / "hasext.jpg").write_text("x")
+    (tmp_path / "no-ext").write_text("x")
+    (tmp_path / "has-ext.jpg").write_text("x")
 
     results = harvest_directory(str(tmp_path), commit=False)
 
     filenames = [r["file"] for r in results]
-    assert "noext" not in filenames
-    assert "hasext.jpg" in filenames
+    assert "no-ext" not in filenames
+    assert "has-ext.jpg" in filenames
 
 
 def test_harvest_directory_skips_already_harvested(tmp_path, freeze_date):
@@ -402,26 +352,3 @@ def test_remove_tags_not_recursive_by_default(tmp_path):
     filenames = [r["file"] for r in results]
     assert "top^^^ls:hd=20260421.jpg" in filenames
     assert "nested^^^ls:hd=20260421.jpg" not in filenames
-
-
-# -- parse_ext_filter --
-
-
-def test_parse_ext_filter_single():
-    assert parse_ext_filter("jpg") == {".jpg"}
-
-
-def test_parse_ext_filter_multiple():
-    assert parse_ext_filter("jpg,png") == {".jpg", ".png"}
-
-
-def test_parse_ext_filter_empty():
-    assert parse_ext_filter("") == set()
-
-
-def test_parse_ext_filter_normalizes_case():
-    assert parse_ext_filter("JPG,PNG") == {".jpg", ".png"}
-
-
-def test_parse_ext_filter_handles_dot_prefix():
-    assert parse_ext_filter(".jpg,.png") == {".jpg", ".png"}

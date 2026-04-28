@@ -2,37 +2,7 @@ import os
 from lssql.harvester_au import build_au_tag_string
 from lssql.harvester_ex import build_ex_tag_string
 from lssql.harvester_ls import content_hash, extract_resolution, harvest_date
-
-SEPARATOR = "^^^"
-
-
-def is_troublesome_name(filename: str) -> bool:
-    stem, _ = os.path.splitext(filename)
-    parts = stem.split(SEPARATOR)
-    if len(parts) > 3:
-        return True
-    return False
-
-
-def is_already_harvested(filename: str) -> bool:
-    stem, _ = os.path.splitext(filename)
-    parts = stem.split(SEPARATOR)
-    if len(parts) < 2:
-        return False
-    if parts[1] in ["^", "^^"]:
-        return False
-    return len(parts[1]) > 0
-
-
-def parse_ext_filter(ext_filter: str) -> set[str]:
-    """
-    parse comma-separated extension string into a set of lowercase dotted extensions.
-    'jpg,png' -> {'.jpg', '.png'}
-    '' -> set()  -- empty means no filter, accept all
-    """
-    if not ext_filter:
-        return set()
-    return {f".{e.strip().lower().lstrip('.')}" for e in ext_filter.split(",")}
+from lssql.harvester_util import is_troublesome_name, is_already_harvested, SEPARATOR
 
 
 def build_harvested_filename(filename: str, directory: str = "") -> str:
