@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.7.3] - 2026-05-01
+
+### Added
+
+- `--verbose` -- skipped files hidden by default, shown with the verbose flag
+
 ## [0.7.2] - 2026-04-28
 
 ### Changed
@@ -22,11 +28,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 
+- trailing hat always -- new filenames are always appended with  `^^^` even with no comment
 - update `DESIGN.md`
-  - trailing hat always -- new filenames are always appended with  `^^^` even with no comment
   - remove stale config section
   - introduce: Hatfile standard decision, Granular Details section, Table of Contents
-
 - revise ROADMAP -- split v0.7.1 into subsequent patches
 
 ## [0.7.0] - 2026-04-27

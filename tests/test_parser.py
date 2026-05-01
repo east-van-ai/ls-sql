@@ -201,7 +201,7 @@ def test_extension_two_period():
 
 
 def test_should_skip():
-    assert should_skip(None)
+    assert should_skip(None)  # type: ignore
     assert should_skip("")
     assert should_skip(".")
     assert should_skip("..")
@@ -223,8 +223,8 @@ def test_build_file_path():
 
 
 def test_build_file_path_empty_path():
-    assert build_file_path({"path": "", "filename": "main.py"}) == "main.py"
+    assert build_file_path({"path": "", "filename": "cli.py"}) == "cli.py"
 
 
 def test_build_file_path_None_path():
-    assert build_file_path({"path": None, "filename": "main.py"}) == "main.py"
+    assert build_file_path({"path": None, "filename": "cli.py"}) == "cli.py"

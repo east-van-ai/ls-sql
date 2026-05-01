@@ -15,6 +15,7 @@ def run_harvest_mode(
     recursive: bool,
     max_files: int = 0,
     allowed_exts: set = set(),
+    verbose: bool = False,
 ) -> None:
     results = harvest_directory(
         path,
@@ -30,10 +31,9 @@ def run_harvest_mode(
         if status in ("renamed", "dry-run"):
             print(f"  {status:>7} : {directory}{r['file']}")
             print(f"       -> : {directory}{r['new_name']}")
-        elif status == "skipped":
+        elif status == "skipped" and verbose:
             print(f"  skipped : {directory}{r['file']}  ({r['reason']})")
 
-    total = len(results)
     actioned = sum(1 for r in results if r["status"] in ("renamed", "dry-run"))
     skipped = sum(1 for r in results if r["status"] == "skipped")
 
@@ -44,17 +44,18 @@ def run_harvest_mode(
         print("  (no files changed -- pass --commit to execute)")
 
 
-def run_remove_mode(path: str, commit: bool, recursive: bool) -> None:
+def run_remove_mode(
+    path: str, commit: bool, recursive: bool, verbose: bool = False
+) -> None:
     results = remove_tags_from_directory(path, commit=commit, recursive=recursive)
 
     for r in results:
         status = r["status"]
         directory = f"{r['directory']}/" if recursive else ""
         if status in ("restored", "dry-run"):
-            #'restored' is the longest status and 8 char long
             print(f"  {status:>8} : {directory}{r['file']}")
             print(f"        -> : {directory}{r['new_name']}")
-        elif status == "skipped":
+        elif status == "skipped" and verbose:
             print(f"   skipped : {directory}{r['file']}  ({r['reason']})")
 
     actioned = sum(1 for r in results if r["status"] in ("restored", "dry-run"))
@@ -110,9 +111,10 @@ def main():
         "--dry-run", action="store_true", help="preview only, no changes"
     )
     parser.add_argument("--commit", action="store_true", help="execute renames")
+    parser.add_argument("--verbose", action="store_true", help="show skipped files")
     parser.add_argument("-R", action="store_true", dest="recursive", help="recursive")
 
-    # piped mode: ls data | python src/lssql/main.py
+    # piped mode: ls data | python src/lssql/cli.py
     if not sys.stdin.isatty():
         for line in sys.stdin:
             path, filename = split_path(line.strip())
@@ -140,7 +142,9 @@ def main():
 
     if args.remove_all_tags:
         commit = args.commit and not args.dry_run
-        run_remove_mode(args.path, commit=commit, recursive=args.recursive)
+        run_remove_mode(
+            args.path, commit=commit, recursive=args.recursive, verbose=args.verbose
+        )
         return
 
     # standalone harvest mode
@@ -154,6 +158,7 @@ def main():
             recursive=args.recursive,
             max_files=args.max,
             allowed_exts=allowed_exts,
+            verbose=args.verbose,
         )
         return
 
