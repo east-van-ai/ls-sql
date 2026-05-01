@@ -265,7 +265,7 @@ No database dependency. No ORM. No migration files.
 ```toml
 [project]
 name = "ls-sql"
-version = "0.7.3"
+version = "0.7.4"
 requires-python = ">=3.14"
 
 [project.scripts]
@@ -415,23 +415,35 @@ au:yr    Year
 
 ### ZIP files (`zi:`)
 
-ZIP files are containers. The metadata worth capturing is what's inside,
-not the compression. The ZIP format stores its central directory separately
-from compressed data, so filenames are readable without decompression.
-No extraction required.
+ZIP and CBZ files are containers. The metadata worth capturing is what's
+inside, not the compression. The ZIP format stores its central directory
+separately from compressed data, so filenames are readable without
+decompression. No extraction required.
+
+macOS resource forks (`__MACOSX/` and `._` sidecar files) are filtered
+automatically. They are implementation noise, not real content. Pass
+`--include-resource-forks` to include them (planned).
 
 ```text
 zi:cnt   total entry count (files and directories, including dot entries)
 zi:ext   content types, comma-separated extensions, no dots (e.g. jpg,png,txt)
-         directories are excluded from ext -- extensions only make sense for files
-zi:dot   dot entry count (files and directories whose name starts with a dot)
-         only present when > 0 -- presence alone is the signal
+          directories excluded -- extensions only make sense for files
+zi:dot   dot entry count (files and directories starting with a dot)
+          only present when > 0 -- presence alone is the signal
+zi:dir   directory count -- explicit and implicit combined, deduplicated
+          explicit: entries whose name ends with /
+          implicit: parent path segments inferred from file entries
+          NOTE: ZIP directories are optional entries (name ending with /).
+          many tools omit them entirely and only write file entries.
+          counting implicit dirs ensures zi:dir reflects actual structure.
+          a ZIP can also contain thousands of empty explicit directories
+          with no file entries at all -- both cases are handled correctly.
 ```
 
 #### Example
 
 ```text
-archive^^^ls:hd=20260428^ls:fh=a3f2c8f91b^zi:cnt=42^zi:ext=jpg,png,txt^zi:dot=3^^^.zip
+archive^^^ls:hd=20260428^ls:fh=a3f2c8f91b^zi:cnt=42^zi:ext=jpg,png,txt^zi:dot=3^zi:dir=1^^^.zip
 ```
 
 #### Query examples

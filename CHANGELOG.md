@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.7.4] - 2026-05-01
+
+### Added
+
+- M4A -- `au:ar`, `au:al`, `au:tt`, `au:tn`, `au:yr` via mutagen MP4
+- ZIP, CBZ -- `zi:cnt`, `zi:ext`, `zi:dot`, `zi:dir` via zipfile stdlib
+  - macOS resource forks (`__MACOSX/`, `._` files) filtered
+
 ## [0.7.3] - 2026-05-01
 
 ### Added

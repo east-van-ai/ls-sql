@@ -3,6 +3,7 @@ from lssql.harvester_au import build_au_tag_string
 from lssql.harvester_ex import build_ex_tag_string
 from lssql.harvester_ls import content_hash, extract_resolution, harvest_date
 from lssql.harvester_util import is_troublesome_name, is_already_harvested, SEPARATOR
+from lssql.harvester_zi import build_zi_tag_string
 
 
 def build_harvested_filename(filename: str, directory: str = "") -> str:
@@ -20,8 +21,9 @@ def build_harvested_filename(filename: str, directory: str = "") -> str:
     res_tag = f"ls:res={res}" if res else ""
     au_tags = build_au_tag_string(filepath, ext) if filepath else ""
     ex_tags = build_ex_tag_string(filepath, ext) if filepath else ""
+    zi_tags = build_zi_tag_string(filepath, ext) if filepath else ""
 
-    tags = "^".join(filter(None, [hd_tag, fh_tag, res_tag, au_tags, ex_tags]))
+    tags = "^".join(filter(None, [hd_tag, fh_tag, res_tag, au_tags, ex_tags, zi_tags]))
 
     if comment:
         return f"{original}{SEPARATOR}{tags}{SEPARATOR}{comment}{ext}"

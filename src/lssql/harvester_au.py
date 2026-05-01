@@ -1,22 +1,36 @@
-# harvester_au.py -- audio metadata extraction (MP3, etc.)
+"""
+audio metadata extraction (MP3, M4A)
+"""
 
-from mutagen.easyid3 import EasyID3
-from mutagen.mp3 import MP3
 from mutagen._util import MutagenError
 
+SUPPORTED_AUDIO_EXTS = {".mp3", ".m4a"}
 
-def extract_mp3_tags(filepath: str) -> dict:
+
+def build_au_tag_string(filepath: str, ext: str) -> str:
     """
-    extract audio metadata from an MP3 file.
-    returns a dict of au: tags. empty dict on failure or missing tags.
+    return a ^-separated tag string for supported audio formats.
+    returns empty string for unsupported formats or on failure.
+    """
+    if ext.lower() not in SUPPORTED_AUDIO_EXTS:
+        return ""
+    if ext.lower() == ".mp3":
+        tags = _extract_mp3_tags(filepath)
+    elif ext.lower() == ".m4a":
+        tags = _extract_m4a_tags(filepath)
+    else:
+        return ""
+    return "^".join(f"{k}={v}" for k, v in tags.items())
 
-    au:ar    Artist
-    au:al    Album
-    au:tt    Track title
-    au:tn    Track number
-    au:yr    Year
+
+def _extract_mp3_tags(filepath: str) -> dict:
+    """
+    extract audio metadata from an MP3 file via EasyID3.
+    returns a dict of au: tags. empty dict on failure or missing tags.
     """
     try:
+        from mutagen.easyid3 import EasyID3
+
         audio = EasyID3(filepath)
     except MutagenError:
         return {}
@@ -47,16 +61,40 @@ def extract_mp3_tags(filepath: str) -> dict:
     return tags
 
 
-def build_au_tag_string(filepath: str, ext: str) -> str:
+def _extract_m4a_tags(filepath: str) -> dict:
     """
-    return a ^-separated tag string for supported audio formats.
-    returns empty string for unsupported formats or on failure.
+    extract audio metadata from an M4A file via MP4 iTunes atoms.
+    returns a dict of au: tags. empty dict on failure or missing tags.
     """
-    if ext.lower() != ".mp3":
-        return ""
+    try:
+        from mutagen.mp4 import MP4
 
-    tags = extract_mp3_tags(filepath)
-    if not tags:
-        return ""
+        audio = MP4(filepath)
+        itags = audio.tags or {}
+    except MutagenError:
+        return {}
 
-    return "^".join(f"{k}={v}" for k, v in tags.items())
+    def get(key):
+        values = itags.get(key)
+        return str(values[0]) if values else ""
+
+    tags = {}
+
+    ar = get("\xa9ART")
+    al = get("\xa9alb")
+    tt = get("\xa9nam")
+    yr = get("\xa9day")
+    trkn = itags.get("trkn")
+
+    if ar:
+        tags["au:ar"] = ar
+    if al:
+        tags["au:al"] = al
+    if tt:
+        tags["au:tt"] = tt
+    if yr:
+        tags["au:yr"] = yr[:4]
+    if trkn:
+        tags["au:tn"] = str(trkn[0][0])  # [(3, 0)] -> '3'
+
+    return tags

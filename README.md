@@ -126,9 +126,12 @@ ls-sql . | awk '{print $1}' | xargs open
 
 - PNG  -- Portable - Stable Diffusion / A1111 generated images
 - JPG  -- Photographer EXIF data
-- MP3  -- Music ID3 tags
 - GIF  -- Traditional - Graphics Interchange Format
 - WEBP -- Modern - Lossless or Lossy
+- MP3  -- Music ID3 tags
+- M4A  -- MP4 iTunes atoms
+- ZIP  -- file count, content types, dot entries, directory structure
+- CBZ  -- Comic Book ZIP, same as ZIP
 - PDF  -- planned
 
 ## Installation
