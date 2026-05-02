@@ -68,6 +68,36 @@ def run_remove_mode(
         print("  (no files changed -- pass --commit to execute)")
 
 
+def run_verify_mode(path: str, recursive: bool, verbose: bool) -> int:
+    """
+    returns exit code -- 0 if all ok, 1 if any changed.
+    """
+    from lssql.harvester import verify_directory
+
+    results = verify_directory(path, recursive=recursive)
+
+    if verbose:
+        for r in results:
+            status = r["status"]
+            directory = f"{r['directory']}/" if recursive else ""
+            if status == "ok":
+                print(f"       ok : {directory}{r['file']}")
+            elif status == "changed":
+                print(f"  CHANGED : {directory}{r['file']}")
+                print(f"         expected : {r['stored']}")
+                print(f"           actual : {r['actual']}")
+            elif status == "skipped":
+                print(f"  skipped : {directory}{r['file']}  ({r['reason']})")
+
+    checked = sum(1 for r in results if r["status"] in ("ok", "changed"))
+    changed = sum(1 for r in results if r["status"] == "changed")
+    skipped = sum(1 for r in results if r["status"] == "skipped")
+
+    print(f"\n{checked} file(s) checked, {changed} changed, {skipped} skipped")
+
+    return 1 if changed else 0
+
+
 def main():
     # argparse only kicks in when there are actual args
     parser = argparse.ArgumentParser(
@@ -111,6 +141,11 @@ def main():
         "--dry-run", action="store_true", help="preview only, no changes"
     )
     parser.add_argument("--commit", action="store_true", help="execute renames")
+    parser.add_argument(
+        "--verify",
+        action="store_true",
+        help="compare ls:fh in filename against current file content hash",
+    )
     parser.add_argument("--verbose", action="store_true", help="show skipped files")
     parser.add_argument("-R", action="store_true", dest="recursive", help="recursive")
 
@@ -146,6 +181,14 @@ def main():
             args.path, commit=commit, recursive=args.recursive, verbose=args.verbose
         )
         return
+
+    # verify mode
+
+    if args.verify:
+        exit_code = run_verify_mode(
+            args.path, recursive=args.recursive, verbose=args.verbose
+        )
+        sys.exit(exit_code)
 
     # standalone harvest mode
 

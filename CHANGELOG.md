@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.7.5] - 2026-05-02
+
+### Added
+
+- `--verify` -- compare `ls:fh` in filename against current file content hash
+  - summary by default, per-file detail with `--verbose`
+  
 ## [0.7.4] - 2026-05-01
 
 ### Added
@@ -46,9 +53,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 
-- MP3 -- `au:ar`, `au:al` via mutagen
+- MP3 -- `au:ar`, `au:al`, `au:tt`, `au:tn`, `au:yr` via mutagen
 - JPG -- `ex:dto`, `ex:cam`, `ex:iso`, `ex:ap`, `ex:fl` via piexif
-- Resolution -- `ls:res` for MP3, JPG, PNG, GIF, WEBP
+- Resolution -- `ls:res` for JPG, PNG, GIF, WEBP
 
 ## [0.8.0] - 2026-04-26
 
@@ -97,7 +104,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Dev
 
-- enable --remove-all-tags with --dry-run and --commit
+- enable `--remove-all-tags` with `--dry-run` and `--commit`
 
 ## [0.6.0] - 2026-04-22
 
@@ -108,7 +115,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Added
 
 - add ls:hd harvest date
-- Dry-run mode by default, `--commit` to execute
+- `--dry-run` mode by default, `--commit` to execute
 - Skip already-harvested files (idempotent)
 - detect and avoid non-existent path
 

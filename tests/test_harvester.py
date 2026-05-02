@@ -10,7 +10,10 @@ from lssql.harvester import (
     harvest_file,
     remove_tags_from_directory,
     remove_tags_from_filename,
+    verify_directory,
+    verify_file,
 )
+from lssql.harvester_ls import content_hash
 
 # -- build_harvested_filename --
 
@@ -352,3 +355,61 @@ def test_remove_tags_not_recursive_by_default(tmp_path):
     filenames = [r["file"] for r in results]
     assert "top^^^ls:hd=20260421.jpg" in filenames
     assert "nested^^^ls:hd=20260421.jpg" not in filenames
+
+
+def test_verify_file_ok(tmp_path):
+    """file hash matches -- status ok."""
+
+    f = tmp_path / "photo.jpg"
+    f.write_bytes(b"hello")
+    fh = content_hash(str(f))
+    harvested = f"photo^^^ls:hd=20260501^ls:fh={fh}^^^.jpg"
+    (tmp_path / harvested).write_bytes(b"hello")
+
+    result = verify_file(str(tmp_path), harvested)
+    assert result["status"] == "ok"
+
+
+def test_verify_file_changed(tmp_path):
+    """file content changed -- status changed."""
+
+    harvested = "photo^^^ls:hd=20260501^ls:fh=0000000000^^^.jpg"
+    f = tmp_path / harvested
+    f.write_bytes(b"hello")
+
+    result = verify_file(str(tmp_path), harvested)
+    assert result["status"] == "changed"
+    assert result["stored"] == "0000000000"
+    assert result["actual"] != "0000000000"
+
+
+def test_verify_file_not_harvested(tmp_path):
+    """plain filename -- skipped, no ls:fh."""
+
+    f = tmp_path / "photo.jpg"
+    f.write_bytes(b"hello")
+
+    result = verify_file(str(tmp_path), "photo.jpg")
+    assert result["status"] == "skipped"
+    assert "harvest first" in result["reason"]
+
+
+def test_verify_file_no_fh_tag(tmp_path):
+    """harvested but no ls:fh tag -- skipped."""
+
+    filename = "photo^^^ls:hd=20260501^^^.jpg"
+    (tmp_path / filename).write_bytes(b"hello")
+
+    result = verify_file(str(tmp_path), filename)
+    assert result["status"] == "skipped"
+    assert "harvest first" in result["reason"]
+
+
+def test_verify_directory(tmp_path):
+    """verify_directory returns results for all files."""
+
+    f = tmp_path / "photo^^^ls:hd=20260501^ls:fh=0000000000^^^.jpg"
+    f.write_bytes(b"hello")
+
+    results = verify_directory(str(tmp_path))
+    assert any(r["status"] == "changed" for r in results)

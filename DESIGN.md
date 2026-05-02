@@ -265,7 +265,7 @@ No database dependency. No ORM. No migration files.
 ```toml
 [project]
 name = "ls-sql"
-version = "0.7.4"
+version = "0.7.5"
 requires-python = ">=3.14"
 
 [project.scripts]
@@ -378,6 +378,20 @@ ls-sql --remove-all-tags --commit -R ~/photos
 Fully reversible. The original filename left of the first `^^^` is never
 modified during harvest, so restoration is lossless.
 
+### `--verify` mode
+
+Compare `ls:fh` in filename against current file content hash.
+
+- summary by default, per-file detail with `--verbose`
+- exit code non-zero on any mismatch -- scriptable
+- read-only, never touches files
+- files without `ls:fh` skipped with reason: no ls:fh -- harvest first
+
+```bash
+ls-sql --verify .
+ls-sql --verify -R ~/photos
+```
+
 ---
 
 ### EXIF files (`ex:`)
@@ -425,12 +439,12 @@ automatically. They are implementation noise, not real content. Pass
 `--include-resource-forks` to include them (planned).
 
 ```text
-zi:cnt   total entry count (files and directories, including dot entries)
-zi:ext   content types, comma-separated extensions, no dots (e.g. jpg,png,txt)
+zi:cnt    total entry count (files and directories, including dot entries)
+zi:ext    content types, comma-separated extensions, no dots (e.g. jpg,png,txt)
           directories excluded -- extensions only make sense for files
-zi:dot   dot entry count (files and directories starting with a dot)
+zi:dot    dot entry count (files and directories starting with a dot)
           only present when > 0 -- presence alone is the signal
-zi:dir   directory count -- explicit and implicit combined, deduplicated
+zi:dir    directory count -- explicit and implicit combined, deduplicated
           explicit: entries whose name ends with /
           implicit: parent path segments inferred from file entries
           NOTE: ZIP directories are optional entries (name ending with /).

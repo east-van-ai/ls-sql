@@ -2,7 +2,7 @@ import os
 from lssql.harvester_au import build_au_tag_string
 from lssql.harvester_ex import build_ex_tag_string
 from lssql.harvester_ls import content_hash, extract_resolution, harvest_date
-from lssql.harvester_util import is_troublesome_name, is_already_harvested, SEPARATOR
+from lssql.harvester_util import is_already_harvested, is_troublesome_name, SEPARATOR
 from lssql.harvester_zi import build_zi_tag_string
 
 
@@ -223,6 +223,89 @@ def remove_tags_from_directory(
                         "new_name": new_filename,
                     }
                 )
+
+    results.sort(key=lambda d: (d["directory"], d["file"]))
+    return results
+
+
+def verify_file(directory: str, filename: str) -> dict:
+    """
+    compare ls:fh in filename against current file content hash.
+    read-only, never touches files.
+    """
+    filepath = os.path.join(directory, filename)
+
+    if not is_already_harvested(filename):
+        return {
+            "directory": directory,
+            "file": filename,
+            "status": "skipped",
+            "reason": "no ls:fh -- harvest first",
+        }
+
+    stem, _ = os.path.splitext(filename)
+    parts = stem.split(SEPARATOR)
+    tags_str = parts[1] if len(parts) > 1 else ""
+    stored_fh = None
+
+    for tag in tags_str.split("^"):
+        if tag.startswith("ls:fh="):
+            stored_fh = tag[len("ls:fh=") :]
+            break
+
+    if not stored_fh:
+        return {
+            "directory": directory,
+            "file": filename,
+            "status": "skipped",
+            "reason": "no ls:fh -- harvest first",
+        }
+
+    actual_fh = content_hash(filepath)
+
+    if stored_fh == actual_fh:
+        return {
+            "directory": directory,
+            "file": filename,
+            "status": "ok",
+        }
+    else:
+        return {
+            "directory": directory,
+            "file": filename,
+            "status": "changed",
+            "stored": stored_fh,
+            "actual": actual_fh,
+        }
+
+
+def verify_directory(path: str, recursive: bool = False) -> list[dict]:
+    """
+    verify ls:fh tags in a directory against current file content.
+    read-only, never touches files.
+    """
+    results = []
+
+    with os.scandir(path) as entries:
+        for entry in entries:
+            if entry.is_dir(follow_symlinks=False):
+                if recursive:
+                    results.extend(verify_directory(entry.path, recursive))
+                continue
+
+            if not entry.is_file():
+                continue
+
+            filename = entry.name
+
+            if filename.startswith("."):
+                continue
+
+            _, ext = os.path.splitext(filename)
+            if not ext:
+                continue
+
+            results.append(verify_file(path, filename))
 
     results.sort(key=lambda d: (d["directory"], d["file"]))
     return results
