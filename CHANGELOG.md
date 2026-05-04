@@ -6,6 +6,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-05-04
+
+### Added
+
+- default harvest extension whitelist -- jpg, jpeg, png, gif, webp, mp3, m4a, zip, cbz
+- unknown extensions require explicit `--ext` opt-in
+
+### Changed
+
+- duplicate detection documented -- `ls:fh` one-liner, no harvester change needed
+- namespace rules documented -- 2-letter reserved for ls-sql, `ud:` blessed for users
+- sv: namespace parked as post-v1 candidate in ROADMAP
+- 80-char original stem limit added to HATFILE.md Rules section
+- `capture=sys` rationale documented in pyproject.toml
+
 ## [0.9.0] - 2026-05-04
 
 ### Added

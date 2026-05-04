@@ -3,6 +3,19 @@ import os
 SEPARATOR = "^^^"
 
 
+DEFAULT_HARVEST_EXTS = {
+    ".jpg",
+    ".jpeg",
+    ".png",
+    ".gif",
+    ".webp",
+    ".mp3",
+    ".m4a",
+    ".zip",
+    ".cbz",
+}
+
+
 def sanitize_tag_value(value: str) -> str:
     """
     replace caret characters in tag values before encoding into filename.
@@ -33,7 +46,7 @@ def parse_ext_filter(ext_filter: str) -> set[str]:
     """
     parse comma-separated extension string into a set of lowercase dotted extensions.
     'jpg,png' -> {'.jpg', '.png'}
-    '' -> set()  -- empty means no filter, accept all
+    '' -> set()  -- empty means no filter, use DEFAULT_HARVEST_EXTS
     """
     if not ext_filter:
         return set()

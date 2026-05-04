@@ -2,7 +2,12 @@ import os
 from lssql.harvester_au import build_au_tag_string
 from lssql.harvester_ex import build_ex_tag_string
 from lssql.harvester_ls import content_hash, extract_resolution, harvest_date
-from lssql.harvester_util import is_already_harvested, is_troublesome_name, SEPARATOR
+from lssql.harvester_util import (
+    is_already_harvested,
+    is_troublesome_name,
+    DEFAULT_HARVEST_EXTS,
+    SEPARATOR,
+)
 from lssql.harvester_zi import build_zi_tag_string
 
 
@@ -39,12 +44,14 @@ def harvest_file(
     """
     stem, ext = os.path.splitext(filename)
 
-    if allowed_exts and ext.lower() not in allowed_exts:
+    effective_exts = allowed_exts if allowed_exts else DEFAULT_HARVEST_EXTS
+
+    if ext.lower() not in effective_exts:
         return {
             "directory": directory,
             "file": filename,
             "status": "skipped",
-            "reason": "extension not in --ext filter",
+            "reason": "extension not in whitelist or --ext list",
         }
 
     if is_troublesome_name(filename):

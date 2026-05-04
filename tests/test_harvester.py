@@ -208,7 +208,7 @@ def test_harvest_directory_ext_filter_skips_with_reason(tmp_path, freeze_date):
     results = harvest_directory(str(tmp_path), commit=False, allowed_exts={".jpg"})
 
     assert results[0]["status"] == "skipped"
-    assert results[0]["reason"] == "extension not in --ext filter"
+    assert results[0]["reason"] == "extension not in whitelist or --ext list"
 
 
 def test_harvest_directory_no_ext_filter_accepts_all(tmp_path, freeze_date):

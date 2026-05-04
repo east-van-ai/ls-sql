@@ -98,13 +98,19 @@ Total target:        <200 chars     well within macOS 255 byte limit
 Namespaces keep tags organised and prevent collisions between sources.
 
 ```text
-ls:    ls-sql native tags
-ex:    EXIF data
 au:    audio metadata (MP3, AAC, FLAC, whatever comes next)
-zi:    zipfile info (.zip files)
-ud:    user defined custom tags
+ex:    EXIF data
+ls:    ls-sql native tags
 sd:    Stable Diffusion / A1111 (planned -- v1.1)
+ud:    user defined custom tags
+zi:    zipfile info (.zip files)
 ```
+
+### Namespace rules
+
+2-letter namespaces are reserved for ls-sql built-in harvesters. They are short
+because they appear in filenames and character budget matters. Use `ud:` for
+simple custom tags, or 1-letter or 3-letter+ for custom structured extensions.
 
 ### Tag reference
 
@@ -265,7 +271,7 @@ No database dependency. No ORM. No migration files.
 ```toml
 [project]
 name = "ls-sql"
-version = "0.9.0"
+version = "0.10.0"
 requires-python = ">=3.14"
 
 [project.scripts]
@@ -558,5 +564,23 @@ ls-sql --query "SELECT * WHERE ud:ingredients CONTAINS 'beef'" ~/recipes
 
 Same pattern works for tags, moods, colours, keywords -- anything you'd reach
 for a checkbox list. One tag key, comma-separated values, no schema required.
+
+---
+
+### Duplicate detection
+
+`ls:fh` is the stable content fingerprint. Duplicates share the same hash
+regardless of filename.
+
+Detect duplicates with a one-liner -- no harvester change needed:
+
+```bash
+ls-sql --query "SELECT * WHERE ls:fh IS NOT NULL" -R . \
+  | awk -F'[\\^]' '{for(i=1;i<=NF;i++) if($i~/^ls:fh=/) print substr($i,6), $0}' \
+  | sort \
+  | awk 'prev==$1 {print} {prev=$1}'
+```
+
+Prints only files that share a hash with at least one other file.
 
 ---
