@@ -3,6 +3,14 @@ import os
 SEPARATOR = "^^^"
 
 
+def sanitize_tag_value(value: str) -> str:
+    """
+    replace caret characters in tag values before encoding into filename.
+    ^ is the tag separator. any caret in a value corrupts the filename format.
+    """
+    return value.replace("^", "-")
+
+
 def is_troublesome_name(filename: str) -> bool:
     stem, _ = os.path.splitext(filename)
     parts = stem.split(SEPARATOR)

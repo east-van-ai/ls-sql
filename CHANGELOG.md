@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-05-04
+
+### Added
+
+- warn and skip if original filename stem exceeds 80 characters
+- warn and skip files with carets in original filename
+- sanitize metadata values replacing carets with dashes
+- full round-trip validation -- harvest, remove-all-tags, validate
+
 ## [0.7.5] - 2026-05-02
 
 ### Added

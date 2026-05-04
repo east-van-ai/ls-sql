@@ -53,6 +53,17 @@ def test_extract_jpg_tags_cam(tmp_path):
     assert tags["ex:cam"] == "canon-eos-r5"
 
 
+def test_extract_jpg_tags_with_caret(tmp_path):
+    exif = base_exif()
+    exif["Exif"][piexif.ExifIFD.DateTimeOriginal] = b"20^24:07:12 14:30:00"
+    exif["0th"][piexif.ImageIFD.Model] = b"C^anon E^OS R5"
+    filepath = make_jpg_with_exif(tmp_path / "photo.jpg", exif)
+
+    tags = extract_jpg_tags(filepath)
+    assert tags["ex:dto"] == "20-24:07:1"
+    assert tags["ex:cam"] == "c-anon-e-os-r5"
+
+
 def test_extract_jpg_tags_iso(tmp_path):
     exif = base_exif()
     exif["Exif"][piexif.ExifIFD.ISOSpeedRatings] = 400

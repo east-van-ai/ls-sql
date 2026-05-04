@@ -3,6 +3,7 @@ EXIF metadata extraction for JPG files
 """
 
 import piexif
+from lssql.harvester_util import sanitize_tag_value
 
 
 def _safe(d, ifd, tag):
@@ -36,7 +37,7 @@ def extract_jpg_tags(filepath: str) -> dict:
     if dto:
         try:
             date_str = dto.decode("utf-8")  # '2024:07:12 14:30:00'
-            tags["ex:dto"] = date_str[:10]  # '2024:07:12'
+            tags["ex:dto"] = sanitize_tag_value(date_str[:10])  # '2024:07:12'
         except Exception:
             pass
 
@@ -46,7 +47,7 @@ def extract_jpg_tags(filepath: str) -> dict:
         try:
             cam_str = cam.decode("utf-8").strip().lower()
             cam_str = cam_str.replace(" ", "-").replace("_", "-")
-            tags["ex:cam"] = cam_str
+            tags["ex:cam"] = sanitize_tag_value(cam_str)
         except Exception:
             pass
 

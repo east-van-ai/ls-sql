@@ -17,7 +17,7 @@ def test_harvest_date(freeze_date):
     """harvest_date() must be called via the module, not imported directly, while freeze_date is active."""
     assert len(harvester.harvest_date()) == 8
     assert harvester.harvest_date().isdigit()
-    assert harvester.harvest_date() == "20260421"
+    assert harvester.harvest_date() == "20260503"
 
 
 # -- content_hash --

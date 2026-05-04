@@ -3,6 +3,7 @@ from src.lssql.harvester_util import (
     is_already_harvested,
     is_troublesome_name,
     parse_ext_filter,
+    sanitize_tag_value,
 )
 
 # -- is_troublesome_name --
@@ -46,9 +47,9 @@ def test_carets_only_with_prefix_without_postfix(filename):
 
 
 def test_already_harvested_with_separator():
-    assert is_already_harvested("photo^^^ls:hd=20260421.jpg") is True
-    assert is_already_harvested("photo^^^ls:hd=20260421^^^.jpg") is True
-    assert is_already_harvested("photo^^^ls:hd=20260421^^^london.jpg") is True
+    assert is_already_harvested("photo^^^ls:hd=20260503.jpg") is True
+    assert is_already_harvested("photo^^^ls:hd=20260503^^^.jpg") is True
+    assert is_already_harvested("photo^^^ls:hd=20260503^^^london.jpg") is True
 
 
 # -- parse_ext_filter --
@@ -72,3 +73,13 @@ def test_parse_ext_filter_normalizes_case():
 
 def test_parse_ext_filter_handles_dot_prefix():
     assert parse_ext_filter(".jpg,.png") == {".jpg", ".png"}
+
+
+# -- sanitize_tag_value --
+
+
+def test_sanitize_tag_value_replaces_carets():
+
+    assert sanitize_tag_value("AC^DC") == "AC-DC"
+    assert sanitize_tag_value("Live^^^Unplugged") == "Live---Unplugged"
+    assert sanitize_tag_value("normal value") == "normal value"

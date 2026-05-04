@@ -3,6 +3,7 @@ audio metadata extraction (MP3, M4A)
 """
 
 from mutagen._util import MutagenError
+from lssql.harvester_util import sanitize_tag_value
 
 SUPPORTED_AUDIO_EXTS = {".mp3", ".m4a"}
 
@@ -48,11 +49,11 @@ def _extract_mp3_tags(filepath: str) -> dict:
     yr = get("date")
 
     if ar:
-        tags["au:ar"] = ar
+        tags["au:ar"] = sanitize_tag_value(ar)
     if al:
-        tags["au:al"] = al
+        tags["au:al"] = sanitize_tag_value(al)
     if tt:
-        tags["au:tt"] = tt
+        tags["au:tt"] = sanitize_tag_value(tt)
     if tn:
         tags["au:tn"] = tn.split("/")[0]  # '1/12' -> '1'
     if yr:
@@ -87,11 +88,11 @@ def _extract_m4a_tags(filepath: str) -> dict:
     trkn = itags.get("trkn")
 
     if ar:
-        tags["au:ar"] = ar
+        tags["au:ar"] = sanitize_tag_value(ar)
     if al:
-        tags["au:al"] = al
+        tags["au:al"] = sanitize_tag_value(al)
     if tt:
-        tags["au:tt"] = tt
+        tags["au:tt"] = sanitize_tag_value(tt)
     if yr:
         tags["au:yr"] = yr[:4]
     if trkn:

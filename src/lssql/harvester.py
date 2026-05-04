@@ -37,6 +37,16 @@ def harvest_file(
     Process a single file. Returns a result dict describing what happened.
     commit=False is dry-run (default, safe).
     """
+    stem, ext = os.path.splitext(filename)
+
+    if allowed_exts and ext.lower() not in allowed_exts:
+        return {
+            "directory": directory,
+            "file": filename,
+            "status": "skipped",
+            "reason": "extension not in --ext filter",
+        }
+
     if is_troublesome_name(filename):
         return {
             "directory": directory,
@@ -53,13 +63,20 @@ def harvest_file(
             "reason": "already harvested",
         }
 
-    _, ext = os.path.splitext(filename)
-    if allowed_exts and ext.lower() not in allowed_exts:
+    if SEPARATOR not in stem and "^" in stem:
         return {
             "directory": directory,
             "file": filename,
             "status": "skipped",
-            "reason": f"extension not in --ext filter",
+            "reason": "caret in filename -- rename file before harvesting",
+        }
+
+    if len(stem) > 80:
+        return {
+            "directory": directory,
+            "file": filename,
+            "status": "skipped",
+            "reason": f"filename too long to harvest ({len(stem)} chars, 80 max)",
         }
 
     new_filename = build_harvested_filename(filename, directory)
