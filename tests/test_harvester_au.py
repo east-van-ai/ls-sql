@@ -98,16 +98,16 @@ def test_build_au_tag_string_year_truncated(tmp_path):
     assert tags["au:yr"] == "2026"
 
 
-def test_build_au_tag_string_with_carets_mp3(tmp_path):
+def test_build_au_tag_string_with_carets_semicolons_mp3(tmp_path):
     filepath = make_mp3(tmp_path / "song.mp3")
     audio = EasyID3(filepath)
     audio["artist"] = ["abc^^^def"]
-    audio["title"] = ["uvw^xyz"]
+    audio["title"] = ["uvw^xyz;;,;123"]
     audio.save()
 
     result = build_au_tag_string(filepath, ".mp3")
     assert "au:ar=abc---def" in result
-    assert "au:tt=uvw-xyz" in result
+    assert "au:tt=uvw-xyz--,-123" in result
 
 
 # -- M4A tests ---------------------------------------------------------------
@@ -190,15 +190,15 @@ def test_extract_m4a_tags_year_truncated(tmp_path):
     assert tags["au:yr"] == "1995"
 
 
-def test_build_au_tag_string_with_carets_m4a(tmp_path):
+def test_build_au_tag_string_with_carets_semicolons_m4a(tmp_path):
     filepath = make_m4a(tmp_path / "song.m4a")
     from mutagen.mp4 import MP4
 
     audio = MP4(filepath)
-    audio["\xa9ART"] = ["abc^^^def"]
+    audio["\xa9ART"] = ["abc^^^def;,;ghi"]
     audio["\xa9nam"] = ["uvw^xyz"]
     audio.save()
 
     result = build_au_tag_string(filepath, ".m4a")
-    assert "au:ar=abc---def" in result
+    assert "au:ar=abc---def-,-ghi" in result
     assert "au:tt=uvw-xyz" in result

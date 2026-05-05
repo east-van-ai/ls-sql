@@ -20,8 +20,9 @@ def sanitize_tag_value(value: str) -> str:
     """
     replace caret characters in tag values before encoding into filename.
     ^ is the tag separator. any caret in a value corrupts the filename format.
+    ; is the list separator and treated in the same way.
     """
-    return value.replace("^", "-")
+    return value.replace("^", "-").replace(";", "-")
 
 
 def is_troublesome_name(filename: str) -> bool:

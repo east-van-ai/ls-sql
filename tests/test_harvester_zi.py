@@ -57,7 +57,7 @@ def test_ext_sorted_unique(tmp_path):
         ],
     )
     tags = _extract_zip_tags(p)
-    assert tags["zi:ext"] == "jpg,png,txt"
+    assert tags["zi:ext"] == "jpg;png;txt"
 
 
 def test_ext_excludes_directories(tmp_path):
@@ -178,7 +178,7 @@ def test_build_zip_tag_string_zip(tmp_path):
     )
     result = build_zi_tag_string(str(p), ".zip")
     assert "zi:cnt=2" in result
-    assert "zi:ext=jpg,txt" in result
+    assert "zi:ext=jpg;txt" in result
 
 
 def test_build_zip_tag_string_cbz(tmp_path):
@@ -191,7 +191,7 @@ def test_build_zip_tag_string_cbz(tmp_path):
     )
     result = build_zi_tag_string(str(p), ".cbz")
     assert "zi:cnt=2" in result
-    assert "zi:ext=jpg,txt" in result
+    assert "zi:ext=jpg;txt" in result
 
 
 def test_build_zip_tag_string_non_zip(tmp_path):

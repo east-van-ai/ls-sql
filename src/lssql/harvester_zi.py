@@ -87,7 +87,7 @@ def _extract_zip_tags(filepath: str) -> dict:
     tags = {}
     tags["zi:cnt"] = str(cnt)
     if exts:
-        tags["zi:ext"] = ",".join(exts)
+        tags["zi:ext"] = ";".join(exts)
     if dot_count:
         tags["zi:dot"] = str(dot_count)
     tags["zi:dir"] = str(dir_count)

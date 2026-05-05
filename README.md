@@ -37,8 +37,7 @@ ls-sql --harvest --commit ~/SD/outputs
 ls-sql ~/SD/outputs
 
 # SQL query (FROM clause omitted -- there is only one thing to query)
-# sd:mn means Stable Diffusion Model Name
-ls-sql --query "SELECT * WHERE sd:mn='sdxl'" ~/SD/outputs
+ls-sql --query "SELECT * WHERE ex:cam='fujifilm-x-t5'" ~/photos
 
 # Recursive
 ls-sql -R ~/SD/outputs
@@ -46,6 +45,42 @@ ls-sql -R ~/SD/outputs
 # Remove all ls-sql tags, restore original filenames
 ls-sql --remove-all-tags --dry-run ~/photos
 ls-sql --remove-all-tags --commit ~/photos
+```
+
+## Setting tags manually
+
+`--set` writes user-defined tags directly into filenames. Harvest-first is
+automatic -- if a file has not been harvested yet, `--set` harvests it first,
+then applies the tag.
+
+```bash
+# Set a tag on a single file (dry-run by default)
+ls-sql --set "ud:album=london-2006" photo.jpg
+
+# Commit
+ls-sql --set "ud:album=london-2006" --commit photo.jpg
+
+# Set multiple tags (caret-separated)
+ls-sql --set "ud:album=london-2006^ud:where=thames" --commit photo.jpg
+
+# Append to an existing value
+ls-sql --set "ud:tags+=rainy" --commit photo.jpg
+
+# Remove a specific value
+ls-sql --set "ud:tags-=rainy" --commit photo.jpg
+
+# Remove a tag entirely
+ls-sql --set "ud:tags-=" --commit photo.jpg
+
+# Apply to a whole directory
+ls-sql --set "ud:trip=london-2006" --commit ~/photos/london
+
+# Apply to files matching a query -- pipe pattern
+ls-sql --query "SELECT * WHERE ex:cam='fujifilm-x-t5'" --quiet ~/photos \
+  | ls-sql --set "ud:gear=fuji" --commit
+
+# Select by content hash -- hash does not change when filename changes
+ls-sql --fh="ab2c3d,9fs7g1" --set "ud:album=london-2006" --commit
 ```
 
 ## Filename convention
@@ -59,21 +94,26 @@ standard using `^^^` as a harvest boundary.
 ```
 
 - Left of first `^^^` -- original filename, never modified
-- Middle -- tagged key-value pairs, defined in config
+- Middle -- tagged key-value pairs
 - Right of second `^^^` -- free human comment, optional
 - Target: under 200 characters total
-- `^^^` separator is user-defined in config
 
 ## Tag namespaces
 
 Namespaces keep tags organised and avoid collisions between sources.
 
 ```text
-ls:    ls-sql native tags
-sd:    Stable Diffusion namespace
-ex:    EXIF namespace
-ud:    User defined custom tags
+ls:    ls-sql native tags          (2-letter, reserved)
+ex:    EXIF namespace              (2-letter, reserved)
+au:    Audio metadata              (2-letter, reserved)
+zi:    ZIP/CBZ metadata            (2-letter, reserved)
+sd:    Stable Diffusion            (2-letter, reserved, v1.1)
+ud:    User defined custom tags    (blessed user namespace)
 ```
+
+2-letter namespaces are reserved for ls-sql built-in harvesters. Use `ud:` for
+custom tags. Use 1-letter or 3-letter+ namespaces for your own structured
+extensions (e.g. `myapp:key=value`).
 
 ### Tag reference
 
@@ -82,27 +122,34 @@ ls:hd    Harvest date
 ls:fh    File content hash (10 chars SHA256, content fingerprint)
 ls:res   Image resolution
 
-sd:mn    Stable Diffusion model name
-sd:cfg   CFG scale
-sd:sd    Seed
-
 ex:dto   EXIF DateTimeOriginal
-ex:lat   EXIF GPSLatitude
+ex:cam   Camera model, slugified
 ex:ap    Aperture (e.g. f2.8)
 
-ud:*     Anything that does not overlap with ls-sql native tags
-         Example: ud:colours=red
+au:ar    Artist
+au:al    Album
+au:tt    Track title
+
+zi:cnt   ZIP entry count
+zi:ext   ZIP content types (semicolon-separated)
+
+ud:*     Anything. Example: ud:album=london-2006
 ```
 
-### User Defined Tags and Album
+### User defined tags and albums
 
-Using `ud:london-2006` as a custom album
+Albums are implemented entirely through `ud:` tags. No database. No schema.
 
 ```text
-IMG_4520^^^ex:dto=2006:13:15^ls:fh=9b1d4e72ac^ud:2006-london=1^ud:where=palace^^^nice-to-meet-you.jpg
-IMG_4521^^^ex:dto=2006:14:10^ls:fh=c3f8a12b91^ud:2006-london=2^ud:where=thames^^^is-it-raining.jpg
-IMG_4522^^^ex:dto=2006:14:15^ls:fh=a3f2c8f91b^ud:2006-london=3^ud:where=london-eye^^^you-might-melt-in-rain.jpg
-IMG_4523^^^ex:dto=2006:23:15^ls:fh=d4e9b23c82^ud:2006-london=4^ud:where=oxo-building^^^it-was-like-a-movie.jpg
+IMG_4520^^^ex:dto=2006:03:15^ls:fh=9b1d4e72ac^ud:2006-london=1^ud:where=palace^^^nice-to-meet-you.jpg
+IMG_4521^^^ex:dto=2006:04:10^ls:fh=c3f8a12b91^ud:2006-london=2^ud:where=thames^^^is-it-raining.jpg
+IMG_4522^^^ex:dto=2006:04:15^ls:fh=a3f2c8f91b^ud:2006-london=3^ud:where=london-eye^^^you-might-melt-in-rain.jpg
+```
+
+Query an album:
+
+```bash
+ls-sql --query "SELECT * WHERE ud:2006-london IS NOT NULL" ~/photos
 ```
 
 ## Output style
@@ -110,7 +157,7 @@ IMG_4523^^^ex:dto=2006:23:15^ls:fh=d4e9b23c82^ud:2006-london=4^ud:where=oxo-buil
 Output prints full path, pipeable, composable result.
 
 ```text
-/Users/go/SD/outputs/00234^^^sd:mn=sdxl^ls:fh=a3f2c8f91b.png
+/Users/go/SD/outputs/00234^^^sd:mn=sdxl^ls:fh=a3f2c8f91b^^^.png
 /Users/go/SD/outputs/00891^^^sd:mn=flux^ls:fh=9b1d4e72ac^^^dog-in-tuxedo.png
 ```
 
@@ -118,8 +165,16 @@ Pipe it anywhere:
 
 ```bash
 ls-sql -R . | grep "euler-a"
-ls-sql --query "SELECT * WHERE sd:mn='flux'" | wc -l
+ls-sql --query "SELECT * WHERE sd:mn='flux'" . | wc -l
 ls-sql . | awk '{print $1}' | xargs open
+```
+
+Use `--quiet` to suppress the summary line and get clean path-per-line output
+for piping:
+
+```bash
+ls-sql --query "SELECT * WHERE ex:cam='fujifilm-x-t5'" --quiet ~/photos \
+  | ls-sql --set "ud:gear=fuji" --commit
 ```
 
 ## Supported file types
@@ -133,6 +188,17 @@ ls-sql . | awk '{print $1}' | xargs open
 - ZIP  -- file count, content types, dot entries, directory structure
 - CBZ  -- Comic Book ZIP, same as ZIP
 - PDF  -- planned
+
+## Duplicate detection
+
+`ls:fh` is the stable content fingerprint. Use it to find duplicates:
+
+```bash
+ls-sql --query "SELECT * WHERE ls:fh IS NOT NULL" -R . \
+  | awk -F'[\\^]' '{for(i=1;i<=NF;i++) if($i~/^ls:fh=/) print substr($i,6), $0}' \
+  | sort \
+  | awk 'prev==$1 {print} {prev=$1}'
+```
 
 ## Installation
 
@@ -162,7 +228,8 @@ External USB SSD:   ~50,000 files per second
     Internal SSD:  ~100,000 files per second
 ```
 
-If your library exceeds these comfortable limits, consider faster storage. ls-sql is not the bottleneck -- your drive is.
+If your library exceeds these comfortable limits, consider faster storage.
+ls-sql is not the bottleneck -- your drive is.
 
 ## When to stop using ls-sql
 
@@ -179,14 +246,14 @@ Congratulations. Go get proper gear. 🎣
 - Small web servers with image collections
 - Anyone who lives in Terminal
 
-## What's next? What are in our backlog? 🔮
+## What's next? 🔮
 
-- Command Line Album viewer for Kitty, iTerm2, or Terminal
+- Command line album viewer for Kitty, iTerm2, or Terminal
 - Harvester with AI prompt summarizer
 
 ## Status
 
-Early development phase. See [DESIGN.md](DESIGN.md) for full specification.
+Final development phase. See [DESIGN.md](DESIGN.md) for full specification.
 
 ## License
 

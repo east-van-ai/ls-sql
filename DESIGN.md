@@ -109,6 +109,16 @@ zi:    zipfile info (.zip files)
 ### Namespace rules
 
 2-letter namespaces are reserved for ls-sql built-in harvesters. They are short
+because they appear in filenames and character budget matters.
+
+- `ud:` is the blessed user namespace for simple custom tags.
+- Use 1-letter or 3-letter+ namespaces for your own structured extensions
+  (e.g. `myapp:key=value`).
+- Use a 2-letter namespace and you are on your own -- harvest will overwrite.
+
+### Namespace rules
+
+2-letter namespaces are reserved for ls-sql built-in harvesters. They are short
 because they appear in filenames and character budget matters. Use `ud:` for
 simple custom tags, or 1-letter or 3-letter+ for custom structured extensions.
 
@@ -212,13 +222,83 @@ ls-sql --remove-all-tags --commit ~/photos             # restore original filena
 ls-sql --remove-all-tags --commit -R ~/photos          # recursive
 ```
 
+### Set mode
+
+Write user-defined tags directly into filenames. Harvest-first is automatic.
+Dry-run by default. Pass `--commit` to execute.
+
+```bash
+# single file
+ls-sql --set "ud:album=london-2006" photo.jpg
+ls-sql --set "ud:album=london-2006" --commit photo.jpg
+
+# multiple tags -- caret-separated
+ls-sql --set "ud:album=london-2006^ud:where=thames" --commit photo.jpg
+
+# directory -- all files in directory
+ls-sql --set "ud:trip=london" --commit ~/photos/london
+
+# recursive directory
+ls-sql --set "ud:trip=london" -R --commit ~/photos/london
+
+# select by content hash
+ls-sql --fh="ab2c3d,9fs7g1" --set "ud:album=london" --commit
+
+# pipe from query -- preferred pattern for filtered sets
+ls-sql --query "SELECT * WHERE ex:cam='fujifilm-x-t5'" --quiet ~/photos \
+  | ls-sql --set "ud:gear=fuji" --commit
+```
+
+#### Operators
+
+```text
+ud:key=value     overwrite -- replaces existing value, or creates tag
+ud:key+=value    append    -- adds value to existing, semicolon-separated
+ud:key-=value    remove    -- removes value from existing if present
+ud:key-=         delete    -- removes the tag entirely
+```
+
+#### Operator rules
+
+- Overwrite (`=`) works on any tag, any namespace.
+- Append (`+=`) and remove (`-=`) work on any tag. No babysitting.
+  Harvest will overwrite machine-generated tags on the next run anyway.
+- Multi-value separator is `;` (semicolon). Comma is allowed in values.
+- Empty tag after `-=` is removed entirely. Empty tags are noise.
+- `ls:fh` is protected. `--set` silently skips it. Content integrity
+  is the one thing the tool guards without being asked.
+- `--ext` is ignored in `--set` mode. File selection is by path or hash,
+  not by extension.
+
+#### Harvest-first
+
+If a file has not been harvested, `--set` harvests it first silently, then
+applies the tag. The user does not need to run `--harvest` first.
+
+#### `--fh` flag
+
+Select files by content hash. Comma-separated list of 10-char SHA256 prefixes.
+Hash does not change when the filename changes -- stable selector across renames.
+
+```bash
+ls-sql --fh="ab2c3d4e5f,9fs7g1h2i3" --set "ud:album=london" --commit
+```
+
+Matches any harvested file whose `ls:fh` value starts with the given prefix.
+
 ### Flag rules
 
 - `--harvest` without `--dry-run` or `--commit` defaults to `--dry-run`. Safe always.
 - `-R` is recursive, same as `ls -R`.
+- `--ext` overrules whitelisted extensions -- jpg, jpeg, png, gif, webp, mp3, m4a, zip, cbz.
 - `--query` filters output. `FROM` clause is omitted -- there is only one thing to query.
 - `--remove-all-tags` strips everything between the first and second `^^^`. The human
   comment right of the second `^^^` is preserved. Fully reversible.
+- `--quiet` suppresses the summary line. Output is clean path-per-line,
+  pipeable into `--set` or any other Unix tool.
+- `--set` without `--commit` is dry-run. Safe always.
+- `--fh` requires `--set`. It is a file selector, not a query.
+- `--ext` is ignored when `--set` is active.
 
 ---
 
@@ -271,7 +351,7 @@ No database dependency. No ORM. No migration files.
 ```toml
 [project]
 name = "ls-sql"
-version = "0.10.0"
+version = "0.11.0"
 requires-python = ">=3.14"
 
 [project.scripts]
@@ -582,5 +662,83 @@ ls-sql --query "SELECT * WHERE ls:fh IS NOT NULL" -R . \
 ```
 
 Prints only files that share a hash with at least one other file.
+
+---
+
+### `--set` mode
+
+`--set` is the write side of ls-sql. It encodes user-defined metadata directly
+into filenames using the Hatfile tag format.
+
+#### Tag manipulation logic
+
+Given a harvested filename:
+
+```text
+photo^^^ls:hd=20260504^ls:fh=ab2c3d4e5f^ud:tags=sunny^^^london.jpg
+```
+
+**Overwrite** `--set "ud:tags=rainy"`:
+
+```text
+photo^^^ls:hd=20260504^ls:fh=ab2c3d4e5f^ud:tags=rainy^^^london.jpg
+```
+
+**Append** `--set "ud:tags+=foggy"`:
+
+```text
+photo^^^ls:hd=20260504^ls:fh=ab2c3d4e5f^ud:tags=rainy;foggy^^^london.jpg
+```
+
+**Remove value** `--set "ud:tags-=rainy"`:
+
+```text
+photo^^^ls:hd=20260504^ls:fh=ab2c3d4e5f^ud:tags=foggy^^^london.jpg
+```
+
+**Delete tag** `--set "ud:tags-="`:
+
+```text
+photo^^^ls:hd=20260504^ls:fh=ab2c3d4e5f^^^london.jpg
+```
+
+#### Multi-value separator
+
+`;` (semicolon) is the multi-value separator. Comma is allowed freely in
+values -- artist names, album titles, captions all use commas naturally.
+Semicolon is rare enough in metadata to serve as a clean delimiter.
+
+```text
+ud:tags=sunny;foggy;london
+au:al=Simon & Garfunkel, Greatest Hits    # comma in value, fine
+```
+
+#### Protected tag
+
+`ls:fh` is the content integrity fingerprint. `--set` will not overwrite it
+under any circumstance. All other tags are fair game.
+
+#### Pipe pattern
+
+The preferred pattern for applying tags to a filtered set of files:
+
+```bash
+ls-sql --query "SELECT * WHERE ex:cam='fujifilm-x-t5'" --quiet ~/photos \
+  | ls-sql --set "ud:gear=fuji" --commit
+```
+
+`--quiet` strips the summary line from `--query` output, leaving clean
+path-per-line for the pipe. `--set` reads piped paths from stdin, same as
+any Unix tool.
+
+Combining `--query` and `--set` in a single command is not supported.
+The pipe is explicit, composable, and shows you what will be tagged before
+you commit. That is the Unix way.
+
+#### Implementation note
+
+New module: `setter.py` Mirrors `scanner.py`, `parser.py`, `query.py`. All
+plain nouns, no prefix. Tag manipulation logic lives here. `cli.py`
+wires in the new mode alongside harvest, remove, verify.
 
 ---

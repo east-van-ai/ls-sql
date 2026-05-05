@@ -6,6 +6,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-05-05
+
+### Added
+
+- GitHub Actions CI -- black and pytest on push and pull request to main
+  - subprocess tests skipped on Linux CI -- stdout capture unreliable on GitHub Actions
+
+### Changed
+
+- au: tags -- comma replaced with semicolon as value separator
+- zi: tags -- comma replaced with semicolon as value separator
+
+### Docs
+
+- design --set functionality
+- update ROADMAP for v0.11.x --set arc
+
 ## [0.10.0] - 2026-05-04
 
 ### Added
