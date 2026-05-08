@@ -116,12 +116,6 @@ because they appear in filenames and character budget matters.
   (e.g. `myapp:key=value`).
 - Use a 2-letter namespace and you are on your own -- harvest will overwrite.
 
-### Namespace rules
-
-2-letter namespaces are reserved for ls-sql built-in harvesters. They are short
-because they appear in filenames and character budget matters. Use `ud:` for
-simple custom tags, or 1-letter or 3-letter+ for custom structured extensions.
-
 ### Tag reference
 
 ```text
@@ -252,10 +246,14 @@ ls-sql --query "SELECT * WHERE ex:cam='fujifilm-x-t5'" --quiet ~/photos \
 #### Operators
 
 ```text
-ud:key=value     overwrite -- replaces existing value, or creates tag
-ud:key+=value    append    -- adds value to existing, semicolon-separated
-ud:key-=value    remove    -- removes value from existing if present
-ud:key-=         delete    -- removes the tag entirely
+ud:key=value    overwrite -- replaces existing value, or creates tag
+ud:key=         no-op     -- empty value, skip silently
+ud:key+=value   append    -- adds value, semicolon-separated
+ud:key+=        no-op     -- empty value, skip silently
+ud:key-=value   remove    -- removes value from existing if present
+ud:key-=        no-op     -- empty value, skip silently
+ud:key==        delete    -- removes the tag entirely
+ud:key==value   no-op     -- value present, skip silently
 ```
 
 #### Operator rules
@@ -351,7 +349,7 @@ No database dependency. No ORM. No migration files.
 ```toml
 [project]
 name = "ls-sql"
-version = "0.11.0"
+version = "0.12.0"
 requires-python = ">=3.14"
 
 [project.scripts]
@@ -543,7 +541,7 @@ zi:dir    directory count -- explicit and implicit combined, deduplicated
 #### Example
 
 ```text
-archive^^^ls:hd=20260428^ls:fh=a3f2c8f91b^zi:cnt=42^zi:ext=jpg,png,txt^zi:dot=3^zi:dir=1^^^.zip
+archive^^^ls:hd=20260428^ls:fh=a3f2c8f91b^zi:cnt=42^zi:ext=jpg;png;txt^zi:dot=3^zi:dir=1^^^.zip
 ```
 
 #### Query examples
@@ -630,10 +628,10 @@ ls-sql --query "SELECT * WHERE ud:2006-london IS NOT NULL" ~/photos | sort
 treats them as plain text. The meaning is yours.
 
 ```text
-roast-beef^^^ls:fh=9b1d4e72ac^ud:ingredients=beef,garlic,carrot^^^at-mrs-johnsons.jpg
-carbonara^^^ls:fh=a3f2c8f91b^ud:ingredients=pork,garlic,pepper^^^italian-night.jpg
-prime-rib^^^ls:fh=c3f8a12b91^ud:ingredients=beef,potato,asparagus^^^my-birthday-dinner.jpg
-hamburger^^^ls:fh=d4e9b23c82^ud:ingredients=beef,tomato,lettuce^^^road-trip-2015.jpg
+roast-beef^^^ls:fh=9b1d4e72ac^ud:ingredients=beef;carrot;garlic^^^at-mrs-johnsons.jpg
+carbonara^^^ls:fh=a3f2c8f91b^ud:ingredients=garlic;pepper;pork^^^italian-night.jpg
+prime-rib^^^ls:fh=c3f8a12b91^ud:ingredients=asparagus;beef;potato^^^my-birthday-dinner.jpg
+hamburger^^^ls:fh=d4e9b23c82^ud:ingredients=beef;lettuce;tomato^^^road-trip-2015.jpg
 ```
 
 Query by ingredient:
@@ -704,19 +702,28 @@ photo^^^ls:hd=20260504^ls:fh=ab2c3d4e5f^^^london.jpg
 
 #### Multi-value separator
 
-`;` (semicolon) is the multi-value separator. Comma is allowed freely in
-values -- artist names, album titles, captions all use commas naturally.
-Semicolon is rare enough in metadata to serve as a clean delimiter.
+Semicolon `;` is the multi-value separator. Commas are allowed freely in
+values—artist names, album titles, and captions naturally contain commas.
+Semicolon is rare enough in metadata to serve as a clean delimiter. Duplicates
+are not allowed, and values are always alphabetically sorted.
 
 ```text
-ud:tags=sunny;foggy;london
+ud:tags=foggy;london;sunny
 au:al=Simon & Garfunkel, Greatest Hits    # comma in value, fine
 ```
 
-#### Protected tag
+#### Protected namespaces
 
-`ls:fh` is the content integrity fingerprint. `--set` will not overwrite it
-under any circumstance. All other tags are fair game.
+2-letter namespaces (except `ud:`) are reserved for ls-sql built-in harvesters.
+`--set` rejects any operation targeting a reserved namespace and stops with an
+error. No files are touched.
+
+```text
+ls:fh=abc     error -- ls: is reserved
+ex:cam=fuji   error -- ex: is reserved
+ud:album=x    allowed -- ud: is the blessed user namespace
+myapp:key=x   allowed -- 3-letter+ namespaces are free
+```
 
 #### Pipe pattern
 

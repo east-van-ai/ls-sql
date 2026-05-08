@@ -6,6 +6,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-05-08
+
+### Added
+
+- `--set` -- write user-defined tags directly into filenames
+  - operators: `=` overwrite, `+=` append, `-=` remove value, `==` delete tag
+  - empty value is always a no-op -- safe by design
+  - `==` with value present is a no-op -- delete must be explicit
+  - harvest-first -- automatic if file not yet harvested
+  - file or directory target, recursive with `-R`
+- `--fh` -- select files by content hash prefix (comma-separated)
+- `setter.py` -- new module for set mode logic
+
+### Changed
+
+- 2-letter namespaces (except `ud:`) are protected in `--set` mode
+
 ## [0.11.0] - 2026-05-05
 
 ### Added
@@ -15,8 +32,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 
-- au: tags -- comma replaced with semicolon as value separator
-- zi: tags -- comma replaced with semicolon as value separator
+- multi-value separator: `;` (semicolon) -- comma is allowed freely in values
+  - `zi:ext` delimiter migrated from comma to semicolon
+  - semicolons sanitized in `au:` tag values
 
 ### Docs
 

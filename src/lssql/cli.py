@@ -6,6 +6,7 @@ from lssql.harvester import harvest_directory, remove_tags_from_directory
 from lssql.harvester_util import parse_ext_filter
 from lssql.parser import build_file_path, parse_filename, should_skip, split_path
 from lssql.query import run_query
+from lssql.setter import parse_set_string, set_file, set_tags_directory
 from lssql.scanner import scan_directory
 
 
@@ -98,6 +99,42 @@ def run_verify_mode(path: str, recursive: bool, verbose: bool) -> int:
     return 1 if changed else 0
 
 
+def run_set_mode(
+    target: str,
+    ops: list[dict],
+    commit: bool,
+    recursive: bool = False,
+    verbose: bool = False,
+) -> None:
+    """
+    target is either a file path or a directory path.
+    """
+    if os.path.isfile(target):
+        directory = os.path.dirname(target) or "."
+        filename = os.path.basename(target)
+        results = [set_file(directory, filename, ops, commit)]
+    else:
+        results = set_tags_directory(target, ops, commit, recursive=recursive)
+
+    for r in results:
+        status = r["status"]
+        directory = f"{r['directory']}/" if recursive else ""
+        if status in ("updated", "dry-run"):
+            print(f"  {status:>7} : {directory}{r['file']}")
+            print(f"       -> : {directory}{r['new_name']}")
+        elif status == "skipped" and verbose:
+            print(f"  skipped : {directory}{r['file']}  ({r['reason']})")
+
+    actioned = sum(1 for r in results if r["status"] in ("updated", "dry-run"))
+    skipped = sum(1 for r in results if r["status"] == "skipped")
+
+    mode_label = "committed" if commit else "dry-run"
+    print(f"\n{actioned} file(s) {mode_label}, {skipped} skipped")
+
+    if not commit:
+        print("  (no files changed -- pass --commit to execute)")
+
+
 def main():
     # argparse only kicks in when there are actual args
     parser = argparse.ArgumentParser(
@@ -146,6 +183,20 @@ def main():
         action="store_true",
         help="compare ls:fh in filename against current file content hash",
     )
+    parser.add_argument(
+        "--set",
+        type=str,
+        default="",
+        metavar="TAGS",
+        help="caret-separated tag operations: ud:key=value^ud:other+=append",
+    )
+    parser.add_argument(
+        "--fh",
+        type=str,
+        default="",
+        metavar="HASHES",
+        help="comma-separated ls:fh prefixes to select files by content hash",
+    )
     parser.add_argument("--verbose", action="store_true", help="show skipped files")
     parser.add_argument("-R", action="store_true", dest="recursive", help="recursive")
 
@@ -189,6 +240,52 @@ def main():
             args.path, recursive=args.recursive, verbose=args.verbose
         )
         sys.exit(exit_code)
+
+    if args.set:
+        ops, error = parse_set_string(args.set)
+        if error:
+            print(error + "\n", file=sys.stderr)
+            sys.exit(1)
+
+        if args.fh:
+            # --fh mode: scan directory, match by hash, apply ops
+            hashes = {h.strip() for h in args.fh.split(",")}
+            rows = scan_directory(args.path, recursive=args.recursive)
+            targets = [
+                r
+                for r in rows
+                if r.get("tags", {}).get("ls:fh", "")[: len(next(iter(hashes)))]
+                in hashes
+            ]
+            if not targets:
+                print("error: no files matched --fh hashes\n", file=sys.stderr)
+                sys.exit(1)
+            commit = args.commit and not args.dry_run
+            results = [set_file(r["path"], r["filename"], ops, commit) for r in targets]
+            # print results inline
+            for res in results:
+                status = res["status"]
+                if status in ("updated", "dry-run"):
+                    print(f"  {status:>7} : {res['file']}")
+                    print(f"       -> : {res['new_name']}")
+                elif status == "skipped" and args.verbose:
+                    print(f"  skipped : {res['file']}  ({res['reason']})")
+            actioned = sum(1 for r in results if r["status"] in ("updated", "dry-run"))
+            skipped = sum(1 for r in results if r["status"] == "skipped")
+            mode_label = "committed" if commit else "dry-run"
+            print(f"\n{actioned} file(s) {mode_label}, {skipped} skipped")
+            if not commit:
+                print("  (no files changed -- pass --commit to execute)")
+        else:
+            commit = args.commit and not args.dry_run
+            run_set_mode(
+                args.path,
+                ops,
+                commit=commit,
+                recursive=args.recursive,
+                verbose=args.verbose,
+            )
+        return
 
     # standalone harvest mode
 
