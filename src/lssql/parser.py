@@ -5,6 +5,8 @@ def parse_filename(filename: str) -> dict:
     """
     parse a filename into its components.
     returns a dict with original, tags, and comment.
+
+    original^^^raw_tags^^^comment.ext
     """
     stem, ext = split_extension(filename)
 
@@ -17,7 +19,7 @@ def parse_filename(filename: str) -> dict:
     data = {
         "path": "",
         "original": original,
-        "tags": tags,
+        "tags": tags,  # dict
         "comment": comment,
         "ext": ext,
         "harvested": harvested,

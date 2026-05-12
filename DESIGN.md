@@ -349,7 +349,7 @@ No database dependency. No ORM. No migration files.
 ```toml
 [project]
 name = "ls-sql"
-version = "0.12.0"
+version = "0.13.0"
 requires-python = ">=3.14"
 
 [project.scripts]

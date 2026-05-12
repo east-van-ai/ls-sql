@@ -176,6 +176,24 @@ def remove_tags_from_filename(filename: str) -> str:
     return f"{original}{ext}"
 
 
+def remove_tags_from_filename_commit(path: str, filename: str, commit: bool) -> dict:
+    new_filename = remove_tags_from_filename(filename)
+    old_path = os.path.join(path, filename)
+    new_path = os.path.join(path, new_filename)
+
+    status = "dry-run"
+    if commit:
+        os.rename(old_path, new_path)
+        status = "restored"
+
+    return {
+        "directory": path,
+        "file": filename,
+        "status": status,
+        "new_name": new_filename,
+    }
+
+
 def remove_tags_from_directory(
     path: str, commit: bool, recursive: bool = False
 ) -> list[dict]:
@@ -224,29 +242,7 @@ def remove_tags_from_directory(
                 )
                 continue
 
-            new_filename = remove_tags_from_filename(filename)
-            old_path = os.path.join(path, filename)
-            new_path = os.path.join(path, new_filename)
-
-            if commit:
-                os.rename(old_path, new_path)
-                results.append(
-                    {
-                        "directory": path,
-                        "file": filename,
-                        "status": "restored",
-                        "new_name": new_filename,
-                    }
-                )
-            else:
-                results.append(
-                    {
-                        "directory": path,
-                        "file": filename,
-                        "status": "dry-run",
-                        "new_name": new_filename,
-                    }
-                )
+            results.append(remove_tags_from_filename_commit(path, filename, commit))
 
     results.sort(key=lambda d: (d["directory"], d["file"]))
     return results

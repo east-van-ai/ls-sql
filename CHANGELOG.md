@@ -6,6 +6,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [v0.13.0] - 2026-05-12
+
+### Added
+
+- Support for passing filename as an argument in addition to directory name across all CLI modes:
+  --query mode
+  --harvest mode
+  --remove-all-tags mode
+  --verify mode
+  --set mode
+
+### Changed
+
+- Improved error handling to ensure errors are printed to standard error
+- Added explicit sys.exit(0) on successful CLI completion
+- Removed initial restriction preventing filename as argument by implementing proper support
+
 ## [0.12.0] - 2026-05-08
 
 ### Added

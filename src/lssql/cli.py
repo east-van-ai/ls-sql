@@ -2,7 +2,14 @@ import argparse
 import os
 import sys
 
-from lssql.harvester import harvest_directory, remove_tags_from_directory
+from lssql.harvester import (
+    harvest_directory,
+    harvest_file,
+    remove_tags_from_directory,
+    remove_tags_from_filename_commit,
+    verify_file,
+    verify_directory,
+)
 from lssql.harvester_util import parse_ext_filter
 from lssql.parser import build_file_path, parse_filename, should_skip, split_path
 from lssql.query import run_query
@@ -11,20 +18,26 @@ from lssql.scanner import scan_directory
 
 
 def run_harvest_mode(
-    path: str,
+    target: str,
     commit: bool,
     recursive: bool,
     max_files: int = 0,
     allowed_exts: set = set(),
     verbose: bool = False,
 ) -> None:
-    results = harvest_directory(
-        path,
-        commit=commit,
-        recursive=recursive,
-        max_files=max_files,
-        allowed_exts=allowed_exts,
-    )
+    if os.path.isfile(target):
+        directory = os.path.dirname(target) or "."
+        filename = os.path.basename(target)
+        results = [harvest_file(directory, filename, commit, allowed_exts)]
+
+    else:
+        results = harvest_directory(
+            target,
+            commit=commit,
+            recursive=recursive,
+            max_files=max_files,
+            allowed_exts=allowed_exts,
+        )
 
     for r in results:
         status = r["status"]
@@ -46,9 +59,15 @@ def run_harvest_mode(
 
 
 def run_remove_mode(
-    path: str, commit: bool, recursive: bool, verbose: bool = False
+    target: str, commit: bool, recursive: bool, verbose: bool = False
 ) -> None:
-    results = remove_tags_from_directory(path, commit=commit, recursive=recursive)
+    if os.path.isfile(target):
+        directory = os.path.dirname(target) or "."
+        filename = os.path.basename(target)
+        results = [remove_tags_from_filename_commit(directory, filename, commit)]
+
+    else:
+        results = remove_tags_from_directory(target, commit=commit, recursive=recursive)
 
     for r in results:
         status = r["status"]
@@ -69,13 +88,17 @@ def run_remove_mode(
         print("  (no files changed -- pass --commit to execute)")
 
 
-def run_verify_mode(path: str, recursive: bool, verbose: bool) -> int:
+def run_verify_mode(target: str, recursive: bool, verbose: bool) -> int:
     """
     returns exit code -- 0 if all ok, 1 if any changed.
     """
-    from lssql.harvester import verify_directory
 
-    results = verify_directory(path, recursive=recursive)
+    if os.path.isfile(target):
+        directory = os.path.dirname(target) or "."
+        filename = os.path.basename(target)
+        results = [verify_file(directory, filename)]
+    else:
+        results = verify_directory(target, recursive=recursive)
 
     if verbose:
         for r in results:
@@ -142,10 +165,10 @@ def main():
         description="pipeable ls with SQL querying and metadata harvesting",
     )
     parser.add_argument(
-        "path",
+        "target",
         nargs="?",
         default="",
-        help="(required) target directory: . for the current directory",
+        help="(required) target directory or filename: . for the current directory",
     )
     parser.add_argument(
         "--query",
@@ -209,18 +232,21 @@ def main():
             parsed = parse_filename(filename)
             parsed["path"] = path
             print(build_file_path(parsed))
-        return
+        sys.exit(0)
 
     args = parser.parse_args()
 
-    # 'path' is a positional argument
-    if not args.path:
-        print("error: '--path' is required. use '.' for the current directory.\n")
+    # 'target' is a positional argument
+    if not args.target:
+        print(
+            "error: 'target' is required. use '.' for the current directory.\n",
+            file=sys.stderr,
+        )
         parser.print_help(sys.stderr)
         sys.exit(1)
 
-    if not os.path.isdir(args.path):
-        print(f"error: directory not found: {args.path}\n")
+    if not (os.path.isdir(args.target) or os.path.isfile(args.target)):
+        print(f"error: directory or file not found: {args.target}\n", file=sys.stderr)
         parser.print_help(sys.stderr)
         sys.exit(1)
 
@@ -229,28 +255,35 @@ def main():
     if args.remove_all_tags:
         commit = args.commit and not args.dry_run
         run_remove_mode(
-            args.path, commit=commit, recursive=args.recursive, verbose=args.verbose
+            args.target,
+            commit=commit,
+            recursive=args.recursive,
+            verbose=args.verbose,
         )
-        return
+        sys.exit(0)
 
     # verify mode
 
     if args.verify:
+        # 1 if changed data is found; otherwise 0
         exit_code = run_verify_mode(
-            args.path, recursive=args.recursive, verbose=args.verbose
+            args.target, recursive=args.recursive, verbose=args.verbose
         )
         sys.exit(exit_code)
+
+    # set mode
 
     if args.set:
         ops, error = parse_set_string(args.set)
         if error:
             print(error + "\n", file=sys.stderr)
+            parser.print_help(sys.stderr)
             sys.exit(1)
 
         if args.fh:
             # --fh mode: scan directory, match by hash, apply ops
             hashes = {h.strip() for h in args.fh.split(",")}
-            rows = scan_directory(args.path, recursive=args.recursive)
+            rows = scan_directory(args.target, recursive=args.recursive)
             targets = [
                 r
                 for r in rows
@@ -259,6 +292,7 @@ def main():
             ]
             if not targets:
                 print("error: no files matched --fh hashes\n", file=sys.stderr)
+                parser.print_help(sys.stderr)
                 sys.exit(1)
             commit = args.commit and not args.dry_run
             results = [set_file(r["path"], r["filename"], ops, commit) for r in targets]
@@ -279,13 +313,13 @@ def main():
         else:
             commit = args.commit and not args.dry_run
             run_set_mode(
-                args.path,
+                args.target,
                 ops,
                 commit=commit,
                 recursive=args.recursive,
                 verbose=args.verbose,
             )
-        return
+        sys.exit(0)
 
     # standalone harvest mode
 
@@ -293,18 +327,25 @@ def main():
         commit = args.commit and not args.dry_run
         allowed_exts = parse_ext_filter(args.ext)
         run_harvest_mode(
-            args.path,
+            args.target,
             commit=commit,
             recursive=args.recursive,
             max_files=args.max,
             allowed_exts=allowed_exts,
             verbose=args.verbose,
         )
-        return
+        sys.exit(0)
 
     # standalone query mode
 
-    rows = scan_directory(args.path, recursive=args.recursive)
+    if os.path.isfile(args.target):
+        directory = os.path.dirname(args.target) or "."
+        filename = os.path.basename(args.target)
+        parsed = parse_filename(filename)
+        parsed["path"] = directory
+        rows = [parsed]
+    else:
+        rows = scan_directory(args.target, recursive=args.recursive)
 
     if args.query:
         matched, error = run_query(args.query, rows)
@@ -319,6 +360,8 @@ def main():
         rows.sort(key=lambda d: d["filename"].lower())
         for row in rows:
             print(build_file_path(row))
+
+    sys.exit(0)
 
 
 if __name__ == "__main__":

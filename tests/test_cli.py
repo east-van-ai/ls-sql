@@ -130,7 +130,7 @@ def test_cli_no_path_subprocess():
     )
 
     assert result.returncode == 1
-    assert "error" in result.stdout
+    assert "error" in result.stderr
 
 
 # -- Option B: main() direct --
@@ -140,54 +140,72 @@ def test_cli_harvest_dry_run_main(tmp_path, freeze_date):
     """main(): --harvest without --commit prints dry-run summary."""
     (tmp_path / "photo.jpg").write_text("fake image content")
 
-    with patch("sys.stdin.isatty", return_value=True):
-        with patch("sys.stdout", new_callable=StringIO) as mock_out:
-            with patch("sys.argv", ["ls-sql", "--harvest", str(tmp_path)]):
-                main()
-            assert "dry-run" in mock_out.getvalue()
-            assert "no files changed" in mock_out.getvalue()
+    with (
+        patch("sys.stdin.isatty", return_value=True),
+        patch("sys.stdout", new_callable=StringIO) as mock_out,
+        patch("sys.argv", ["ls-sql", "--harvest", str(tmp_path)]),
+        pytest.raises(SystemExit) as exc,
+    ):
+        main()
+
+    assert exc.value.code == 0
+    assert "dry-run" in mock_out.getvalue()
+    assert "no files changed" in mock_out.getvalue()
 
 
 def test_cli_harvest_commit_main(tmp_path, freeze_date):
     """main(): --harvest --commit renames file and prints committed summary."""
     (tmp_path / "photo.jpg").write_text("fake image content")
 
-    with patch("sys.stdin.isatty", return_value=True):
-        with patch("sys.stdout", new_callable=StringIO) as mock_out:
-            with patch("sys.argv", ["ls-sql", "--harvest", "--commit", str(tmp_path)]):
-                main()
-            assert "committed" in mock_out.getvalue()
-        assert len(list(tmp_path.glob("photo^^^*"))) == 1
+    with (
+        patch("sys.stdin.isatty", return_value=True),
+        patch("sys.stdout", new_callable=StringIO) as mock_out,
+        patch("sys.argv", ["ls-sql", "--harvest", "--commit", str(tmp_path)]),
+        pytest.raises(SystemExit) as exc,
+    ):
+        main()
+
+    assert exc.value.code == 0
+    assert "committed" in mock_out.getvalue()
+    assert len(list(tmp_path.glob("photo^^^*"))) == 1
 
 
 def test_cli_remove_all_tags_main(tmp_path, freeze_date):
     """main(): --remove-all-tags restores original filename."""
     (tmp_path / "photo^^^ls:hd=20260503^^^.jpg").write_text("fake image content")
 
-    with patch("sys.stdin.isatty", return_value=True):
-        with patch("sys.stdout", new_callable=StringIO) as mock_out:
-            with patch(
-                "sys.argv", ["ls-sql", "--remove-all-tags", "--commit", str(tmp_path)]
-            ):
-                main()
-            assert "committed" in mock_out.getvalue()
-        assert (tmp_path / "photo.jpg").exists()
+    with (
+        patch("sys.stdin.isatty", return_value=True),
+        patch("sys.stdout", new_callable=StringIO) as mock_out,
+        patch("sys.argv", ["ls-sql", "--remove-all-tags", "--commit", str(tmp_path)]),
+        pytest.raises(SystemExit) as exc,
+    ):
+        main()
+
+    assert exc.value.code == 0
+    assert "committed" in mock_out.getvalue()
+    assert (tmp_path / "photo.jpg").exists()
 
 
 def test_cli_verify_ok_main(tmp_path, freeze_date):
     """main(): --verify exits 0 when all files ok."""
     (tmp_path / "photo.jpg").write_text("fake image content")
 
-    with patch("sys.stdin.isatty", return_value=True):
-        with patch("sys.stdout", new_callable=StringIO):
-            with patch("sys.argv", ["ls-sql", "--harvest", "--commit", str(tmp_path)]):
-                main()
+    with (
+        patch("sys.stdin.isatty", return_value=True),
+        patch("sys.stdout", new_callable=StringIO),
+        patch("sys.argv", ["ls-sql", "--harvest", "--commit", str(tmp_path)]),
+        pytest.raises(SystemExit),
+    ):
+        main()
 
-    with patch("sys.stdin.isatty", return_value=True):
-        with patch("sys.stdout", new_callable=StringIO):
-            with patch("sys.argv", ["ls-sql", "--verify", str(tmp_path)]):
-                with pytest.raises(SystemExit) as exc:
-                    main()
+    with (
+        patch("sys.stdin.isatty", return_value=True),
+        patch("sys.stdout", new_callable=StringIO),
+        patch("sys.argv", ["ls-sql", "--verify", str(tmp_path)]),
+        pytest.raises(SystemExit) as exc,
+    ):
+        main()
 
     assert exc.value.code == 0
 
@@ -196,29 +214,36 @@ def test_cli_verify_changed_main(tmp_path, freeze_date):
     """main(): --verify exits 1 when a file has changed."""
     (tmp_path / "photo.jpg").write_text("fake image content")
 
-    with patch("sys.stdin.isatty", return_value=True):
-        with patch("sys.stdout", new_callable=StringIO):
-            with patch("sys.argv", ["ls-sql", "--harvest", "--commit", str(tmp_path)]):
-                main()
+    with (
+        patch("sys.stdin.isatty", return_value=True),
+        patch("sys.stdout", new_callable=StringIO),
+        patch("sys.argv", ["ls-sql", "--harvest", "--commit", str(tmp_path)]),
+        pytest.raises(SystemExit),
+    ):
+        main()
 
     harvested = list(tmp_path.glob("photo^^^*"))[0]
     harvested.write_text("tampered content")
 
-    with patch("sys.stdin.isatty", return_value=True):
-        with patch("sys.stdout", new_callable=StringIO):
-            with patch("sys.argv", ["ls-sql", "--verify", str(tmp_path)]):
-                with pytest.raises(SystemExit) as exc:
-                    main()
+    with (
+        patch("sys.stdin.isatty", return_value=True),
+        patch("sys.stdout", new_callable=StringIO),
+        patch("sys.argv", ["ls-sql", "--verify", str(tmp_path)]),
+        pytest.raises(SystemExit) as exc,
+    ):
+        main()
 
     assert exc.value.code == 1
 
 
 def test_cli_no_path_main():
     """main(): missing path prints error and exits 1."""
-    with patch("sys.stdin.isatty", return_value=True):
-        with patch("sys.stdout", new_callable=StringIO):
-            with patch("sys.argv", ["ls-sql", "--harvest"]):
-                with pytest.raises(SystemExit) as exc:
-                    main()
+    with (
+        patch("sys.stdin.isatty", return_value=True),
+        patch("sys.stdout", new_callable=StringIO),
+        patch("sys.argv", ["ls-sql", "--harvest"]),
+        pytest.raises(SystemExit) as exc,
+    ):
+        main()
 
     assert exc.value.code == 1
