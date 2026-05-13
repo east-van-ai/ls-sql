@@ -27,9 +27,12 @@ def run_harvest_mode(
 ) -> None:
     if os.path.isfile(target):
         directory = os.path.dirname(target) or "."
-        filename = os.path.basename(target)
-        results = [harvest_file(directory, filename, commit, allowed_exts)]
-
+        filename = os.path.basename(target) or ""
+        results = (
+            []
+            if should_skip(filename)
+            else [harvest_file(directory, filename, commit, allowed_exts)]
+        )
     else:
         results = harvest_directory(
             target,
@@ -63,9 +66,12 @@ def run_remove_mode(
 ) -> None:
     if os.path.isfile(target):
         directory = os.path.dirname(target) or "."
-        filename = os.path.basename(target)
-        results = [remove_tags_from_filename_commit(directory, filename, commit)]
-
+        filename = os.path.basename(target) or ""
+        results = (
+            []
+            if should_skip(filename)
+            else [remove_tags_from_filename_commit(directory, filename, commit)]
+        )
     else:
         results = remove_tags_from_directory(target, commit=commit, recursive=recursive)
 
@@ -95,8 +101,8 @@ def run_verify_mode(target: str, recursive: bool, verbose: bool) -> int:
 
     if os.path.isfile(target):
         directory = os.path.dirname(target) or "."
-        filename = os.path.basename(target)
-        results = [verify_file(directory, filename)]
+        filename = os.path.basename(target) or ""
+        results = [] if should_skip(filename) else [verify_file(directory, filename)]
     else:
         results = verify_directory(target, recursive=recursive)
 
@@ -128,14 +134,50 @@ def run_set_mode(
     commit: bool,
     recursive: bool = False,
     verbose: bool = False,
-) -> None:
+    fh: str = "",
+) -> int:
     """
     target is either a file path or a directory path.
     """
+    if fh:
+        # --fh mode: scan directory, match by hash, apply ops
+        hashes = {h.strip() for h in fh.split(",")}
+        rows = scan_directory(target, recursive=recursive)
+        targets = [
+            r
+            for r in rows
+            if r.get("tags", {}).get("ls:fh", "")[: len(next(iter(hashes)))] in hashes
+        ]
+        if not targets:
+            print("error: no files matched --fh hashes\n", file=sys.stderr)
+            return 1
+
+        results = [set_file(r["path"], r["filename"], ops, commit) for r in targets]
+        # print results inline
+        for res in results:
+            status = res["status"]
+            if status in ("updated", "dry-run"):
+                print(f"  {status:>7} : {res['file']}")
+                print(f"       -> : {res['new_name']}")
+            elif status == "skipped" and verbose:
+                print(f"  skipped : {res['file']}  ({res['reason']})")
+        actioned = sum(1 for r in results if r["status"] in ("updated", "dry-run"))
+        skipped = sum(1 for r in results if r["status"] == "skipped")
+        mode_label = "committed" if commit else "dry-run"
+        print(f"\n{actioned} file(s) {mode_label}, {skipped} skipped")
+        if not commit:
+            print("  (no files changed -- pass --commit to execute)")
+
+        return 0
+
     if os.path.isfile(target):
         directory = os.path.dirname(target) or "."
-        filename = os.path.basename(target)
-        results = [set_file(directory, filename, ops, commit)]
+        filename = os.path.basename(target) or ""
+        results = (
+            []
+            if should_skip(filename)
+            else [set_file(directory, filename, ops, commit)]
+        )
     else:
         results = set_tags_directory(target, ops, commit, recursive=recursive)
 
@@ -156,6 +198,41 @@ def run_set_mode(
 
     if not commit:
         print("  (no files changed -- pass --commit to execute)")
+
+    return 0
+
+
+def run_query_mode(
+    target: str,
+    query: str = "",
+    recursive: bool = False,
+) -> int:
+    if os.path.isfile(target):
+        directory = os.path.dirname(target) or "."
+        filename = os.path.basename(target) or ""
+        if should_skip(filename):
+            rows = []
+        else:
+            parsed = parse_filename(filename)
+            parsed["path"] = directory
+            rows = [parsed]
+    else:
+        rows = scan_directory(target, recursive=recursive)
+
+    if query:
+        matched, error = run_query(query, rows)
+        if error:
+            print(error + "\n", file=sys.stderr)
+            return 1
+        matched.sort(key=lambda d: d["filename"].lower())
+        for row in matched:
+            print(build_file_path(row))
+    else:
+        rows.sort(key=lambda d: d["filename"].lower())
+        for row in rows:
+            print(build_file_path(row))
+
+    return 0
 
 
 def main():
@@ -262,7 +339,7 @@ def main():
         )
         sys.exit(0)
 
-    # verify mode
+    # standalone verify mode
 
     if args.verify:
         # 1 if changed data is found; otherwise 0
@@ -271,7 +348,7 @@ def main():
         )
         sys.exit(exit_code)
 
-    # set mode
+    # standalone set mode
 
     if args.set:
         ops, error = parse_set_string(args.set)
@@ -280,46 +357,18 @@ def main():
             parser.print_help(sys.stderr)
             sys.exit(1)
 
-        if args.fh:
-            # --fh mode: scan directory, match by hash, apply ops
-            hashes = {h.strip() for h in args.fh.split(",")}
-            rows = scan_directory(args.target, recursive=args.recursive)
-            targets = [
-                r
-                for r in rows
-                if r.get("tags", {}).get("ls:fh", "")[: len(next(iter(hashes)))]
-                in hashes
-            ]
-            if not targets:
-                print("error: no files matched --fh hashes\n", file=sys.stderr)
-                parser.print_help(sys.stderr)
-                sys.exit(1)
-            commit = args.commit and not args.dry_run
-            results = [set_file(r["path"], r["filename"], ops, commit) for r in targets]
-            # print results inline
-            for res in results:
-                status = res["status"]
-                if status in ("updated", "dry-run"):
-                    print(f"  {status:>7} : {res['file']}")
-                    print(f"       -> : {res['new_name']}")
-                elif status == "skipped" and args.verbose:
-                    print(f"  skipped : {res['file']}  ({res['reason']})")
-            actioned = sum(1 for r in results if r["status"] in ("updated", "dry-run"))
-            skipped = sum(1 for r in results if r["status"] == "skipped")
-            mode_label = "committed" if commit else "dry-run"
-            print(f"\n{actioned} file(s) {mode_label}, {skipped} skipped")
-            if not commit:
-                print("  (no files changed -- pass --commit to execute)")
-        else:
-            commit = args.commit and not args.dry_run
-            run_set_mode(
-                args.target,
-                ops,
-                commit=commit,
-                recursive=args.recursive,
-                verbose=args.verbose,
-            )
-        sys.exit(0)
+        commit = args.commit and not args.dry_run
+        exit_code = run_set_mode(
+            args.target,
+            ops,
+            commit=commit,
+            recursive=args.recursive,
+            verbose=args.verbose,
+            fh=args.fh,
+        )
+        if exit_code:
+            parser.print_help(sys.stderr)
+        sys.exit(exit_code)
 
     # standalone harvest mode
 
@@ -338,30 +387,14 @@ def main():
 
     # standalone query mode
 
-    if os.path.isfile(args.target):
-        directory = os.path.dirname(args.target) or "."
-        filename = os.path.basename(args.target)
-        parsed = parse_filename(filename)
-        parsed["path"] = directory
-        rows = [parsed]
-    else:
-        rows = scan_directory(args.target, recursive=args.recursive)
-
-    if args.query:
-        matched, error = run_query(args.query, rows)
-        if error:
-            print(error + "\n", file=sys.stderr)
-            parser.print_help(sys.stderr)
-            sys.exit(1)
-        matched.sort(key=lambda d: d["filename"].lower())
-        for row in matched:
-            print(build_file_path(row))
-    else:
-        rows.sort(key=lambda d: d["filename"].lower())
-        for row in rows:
-            print(build_file_path(row))
-
-    sys.exit(0)
+    exit_code = run_query_mode(
+        args.target,
+        query=args.query,
+        recursive=args.recursive,
+    )
+    if exit_code:
+        parser.print_help(sys.stderr)
+    sys.exit(exit_code)
 
 
 if __name__ == "__main__":

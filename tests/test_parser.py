@@ -206,6 +206,7 @@ def test_should_skip():
     assert should_skip(".")
     assert should_skip("..")
     assert should_skip(".hidden-file")
+    assert should_skip(".hidden-file.jpg")
     assert should_skip("filename-without-extension")
     assert should_skip("filename-without-extension.")
 

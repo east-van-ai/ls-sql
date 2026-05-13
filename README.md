@@ -80,7 +80,7 @@ ls-sql --query "SELECT * WHERE ex:cam='fujifilm-x-t5'" --quiet ~/photos \
   | ls-sql --set "ud:gear=fuji" --commit
 
 # Select by content hash -- hash does not change when filename changes
-ls-sql --fh="ab2c3d,9fs7g1" --set "ud:album=london-2006" --commit
+ls-sql --fh="ab2c3d,9fs7g1" --set "ud:album=london-2006" --commit ~/photos
 ```
 
 ## Filename convention

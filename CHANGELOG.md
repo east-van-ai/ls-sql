@@ -6,6 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [v0.14.0] - 2026-05-13
+
+### Added
+
+- tests: ensure hidden files are ignored in any operation mode
+- tests: ensure --set mode --fh option works
+- tests: ensure pipe operation works
+- docs: NOTES.md -- running scratchpad for doc updates and decisions
+
+### Changed
+
+- refactor: --fh logic extracted from main() into run_set_mode()
+- refactor: --query logic extracted from main() into run_query_mode()
+
 ## [v0.13.0] - 2026-05-12
 
 ### Added

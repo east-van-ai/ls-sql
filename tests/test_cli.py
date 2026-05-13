@@ -247,3 +247,102 @@ def test_cli_no_path_main():
         main()
 
     assert exc.value.code == 1
+
+
+# ---------------------------------------------------------------------------
+# pipe mode tests
+# ---------------------------------------------------------------------------
+
+
+def test_pipe_mode_plain_filename(tmp_path):
+    """
+    pipe mode: plain filename piped through stdin is printed as full path.
+    """
+    fake_input = f"{tmp_path}/photo.jpg\n"
+
+    with (
+        patch("sys.stdin.isatty", return_value=False),
+        patch("sys.stdin", StringIO(fake_input)),
+        patch("sys.stdout", new_callable=StringIO) as mock_out,
+        pytest.raises(SystemExit) as exc,
+    ):
+        main()
+
+    assert exc.value.code == 0
+    assert "photo.jpg" in mock_out.getvalue()
+
+
+def test_pipe_mode_hatfile_filename(tmp_path):
+    """
+    pipe mode: hatfile filename (with ^^^) piped through stdin is echoed back.
+    """
+    filename = "photo^^^ls:hd=20260503^^^.jpg"
+    fake_input = f"{tmp_path}/{filename}\n"
+
+    with (
+        patch("sys.stdin.isatty", return_value=False),
+        patch("sys.stdin", StringIO(fake_input)),
+        patch("sys.stdout", new_callable=StringIO) as mock_out,
+        pytest.raises(SystemExit) as exc,
+    ):
+        main()
+
+    assert exc.value.code == 0
+    assert filename in mock_out.getvalue()
+
+
+def test_pipe_mode_skips_hidden_files(tmp_path):
+    """
+    pipe mode: hidden files (dot-prefixed) are silently skipped.
+    """
+    fake_input = f"{tmp_path}/.hidden.jpg\n"
+
+    with (
+        patch("sys.stdin.isatty", return_value=False),
+        patch("sys.stdin", StringIO(fake_input)),
+        patch("sys.stdout", new_callable=StringIO) as mock_out,
+        pytest.raises(SystemExit) as exc,
+    ):
+        main()
+
+    assert exc.value.code == 0
+    assert ".hidden" not in mock_out.getvalue()
+
+
+def test_pipe_mode_multiple_lines(tmp_path):
+    """
+    pipe mode: multiple filenames piped through stdin are all printed.
+    """
+    fake_input = (
+        f"{tmp_path}/alpha.jpg\n" f"{tmp_path}/beta.jpg\n" f"{tmp_path}/gamma.png\n"
+    )
+
+    with (
+        patch("sys.stdin.isatty", return_value=False),
+        patch("sys.stdin", StringIO(fake_input)),
+        patch("sys.stdout", new_callable=StringIO) as mock_out,
+        pytest.raises(SystemExit) as exc,
+    ):
+        main()
+
+    assert exc.value.code == 0
+    out = mock_out.getvalue()
+    assert "alpha.jpg" in out
+    assert "beta.jpg" in out
+    assert "gamma.png" in out
+
+
+def test_pipe_mode_empty_stdin():
+    """
+    pipe mode: empty stdin produces no output and exits 0.
+    """
+    with (
+        patch("sys.stdin.isatty", return_value=False),
+        patch("sys.stdin", StringIO("")),
+        patch("sys.stdout", new_callable=StringIO) as mock_out,
+        pytest.raises(SystemExit) as exc,
+    ):
+        main()
+
+    assert exc.value.code == 0
+    assert mock_out.getvalue() == ""

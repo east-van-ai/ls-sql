@@ -420,7 +420,7 @@ def test_set_tags_directory_recursive(tmp_path, freeze_date):
     assert len(results) == 2
 
 
-def _test_set_tags_directory_skips_hidden(tmp_path, freeze_date):
+def test_set_tags_directory_skips_hidden(tmp_path, freeze_date):
     (tmp_path / ".hidden^^^ls:hd=20260503^ls:fh=ab2c3d4e5f^^^.jpg").write_bytes(b"x")
     (tmp_path / "visible^^^ls:hd=20260503^ls:fh=cd4e5f6g7h^^^.jpg").write_bytes(b"x")
 
@@ -428,4 +428,4 @@ def _test_set_tags_directory_skips_hidden(tmp_path, freeze_date):
     results = set_tags_directory(str(tmp_path), ops, commit=False)
 
     assert len(results) == 1
-    assert results[0]["file"].startswith("visible")  # TODO not right
+    assert results[0]["file"].startswith("visible")

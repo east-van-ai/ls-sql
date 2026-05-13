@@ -111,7 +111,7 @@ def should_skip(filename: str) -> bool:
 
     stem, ext = split_extension(filename)  # ext includes the dot
 
-    is_hidden = stem == ""
+    is_hidden = stem == "" or stem.startswith(".")
     has_no_extension = ext in ("", ".")
 
     return is_hidden or has_no_extension

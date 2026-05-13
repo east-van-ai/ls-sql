@@ -236,7 +236,7 @@ ls-sql --set "ud:trip=london" --commit ~/photos/london
 ls-sql --set "ud:trip=london" -R --commit ~/photos/london
 
 # select by content hash
-ls-sql --fh="ab2c3d,9fs7g1" --set "ud:album=london" --commit
+ls-sql --fh="ab2c3d,9fs7g1" --set "ud:album=london" --commit ~/photos
 
 # pipe from query -- preferred pattern for filtered sets
 ls-sql --query "SELECT * WHERE ex:cam='fujifilm-x-t5'" --quiet ~/photos \
@@ -279,7 +279,7 @@ Select files by content hash. Comma-separated list of 10-char SHA256 prefixes.
 Hash does not change when the filename changes -- stable selector across renames.
 
 ```bash
-ls-sql --fh="ab2c3d4e5f,9fs7g1h2i3" --set "ud:album=london" --commit
+ls-sql --fh="ab2c3d4e5f,9fs7g1h2i3" --set "ud:album=london" --commit ~/photos
 ```
 
 Matches any harvested file whose `ls:fh` value starts with the given prefix.
@@ -349,7 +349,7 @@ No database dependency. No ORM. No migration files.
 ```toml
 [project]
 name = "ls-sql"
-version = "0.13.0"
+version = "0.14.0"
 requires-python = ">=3.14"
 
 [project.scripts]

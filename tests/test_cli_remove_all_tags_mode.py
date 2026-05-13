@@ -145,3 +145,125 @@ def test_cli_remove_all_tags_mode_option_b_filename_as_arg(tmp_path, freeze_date
     assert exc.value.code == 0
     assert (tmp_path / "photo.jpg").exists()
     assert "1 file(s) committed, 0 skipped" in mock_out.getvalue()
+
+
+# -- hidden files --
+
+
+def test_cli_remove_all_tags_mode_option_b_directory_containing_hidden_files(
+    tmp_path, freeze_date
+):
+    """main(): --remove-all-tags with a directory as arg"""
+    (tmp_path / "aaa.jpg").write_text("fake content")
+    (tmp_path / "bbb.jpg").write_text("fake content")
+    (tmp_path / "ccc.jpg").write_text("fake content")
+
+    with (
+        patch("sys.stdin.isatty", return_value=True),
+        patch("sys.stdout", new_callable=StringIO) as mock_out,
+        patch("sys.argv", ["ls-sql", "--harvest", "--commit", str(tmp_path)]),
+        pytest.raises(SystemExit) as exc,
+    ):
+        main()
+
+    # Note: the order may not be [aaa, bbb, ccc]
+    files = sorted(tmp_path.glob("???^^^*^^^.jpg"))
+    assert len(files) == 3
+
+    # aaa^^^ls:hd=20260503~~^^^.jpg
+    assert files[0].stem.startswith("aaa")
+
+    # .bbb^^^ls:hd=20260503~~^^^.jpg
+    assert files[1].stem.startswith("bbb")
+    files[1].rename(files[1].parent / ("." + files[1].stem + files[1].suffix))
+
+    # .ccc^^^ls:hd=20260503~~^^^
+    assert files[2].stem.startswith("ccc")
+    files[2].rename(files[2].parent / ("." + files[2].stem))
+
+    with (
+        patch("sys.stdin.isatty", return_value=True),
+        patch("sys.stdout", new_callable=StringIO) as mock_out,
+        patch(
+            "sys.argv",
+            ["ls-sql", "--remove-all-tags", "--commit", str(tmp_path)],
+        ),
+        pytest.raises(SystemExit) as exc,
+    ):
+        main()
+
+    assert exc.value.code == 0
+    assert "1 file(s) committed, 0 skipped" in mock_out.getvalue()
+
+
+def test_cli_remove_all_tags_mode_option_b_hidden_filename_with_extension(
+    tmp_path, freeze_date
+):
+    """main(): --remove-all-tags with a hidden filename WITH extension as arg"""
+    (tmp_path / "bbb.jpg").write_text("fake content")
+
+    with (
+        patch("sys.stdin.isatty", return_value=True),
+        patch("sys.stdout", new_callable=StringIO) as mock_out,
+        patch("sys.argv", ["ls-sql", "--harvest", "--commit", str(tmp_path)]),
+        pytest.raises(SystemExit) as exc,
+    ):
+        main()
+
+    marked = next(tmp_path.glob("bbb^^^*^^^.jpg"))
+    assert marked is not None
+
+    # .bbb^^^ls:hd=20260503~~^^^.jpg
+    assert marked.stem.startswith("bbb")
+    marked = marked.rename(marked.parent / ("." + marked.stem + marked.suffix))
+
+    with (
+        patch("sys.stdin.isatty", return_value=True),
+        patch("sys.stdout", new_callable=StringIO) as mock_out,
+        patch(
+            "sys.argv",
+            ["ls-sql", "--remove-all-tags", "--commit", str(marked)],
+        ),
+        pytest.raises(SystemExit) as exc,
+    ):
+        main()
+
+    assert exc.value.code == 0
+    assert "0 file(s) committed, 0 skipped" in mock_out.getvalue()
+
+
+def test_cli_remove_all_tags_mode_option_b_hidden_filename_without_extension(
+    tmp_path, freeze_date
+):
+    """main(): --remove-all-tags with a hidden filename WITHOUT extension as arg"""
+    (tmp_path / "ccc.jpg").write_text("fake content")
+
+    with (
+        patch("sys.stdin.isatty", return_value=True),
+        patch("sys.stdout", new_callable=StringIO) as mock_out,
+        patch("sys.argv", ["ls-sql", "--harvest", "--commit", str(tmp_path)]),
+        pytest.raises(SystemExit) as exc,
+    ):
+        main()
+
+    marked = next(tmp_path.glob("ccc^^^*^^^.jpg"))
+    assert marked is not None
+
+    # .ccc^^^ls:hd=20260503~~^^^
+    assert marked.stem.startswith("ccc")
+    marked = marked.rename(marked.parent / ("." + marked.stem))
+    print(marked)
+
+    with (
+        patch("sys.stdin.isatty", return_value=True),
+        patch("sys.stdout", new_callable=StringIO) as mock_out,
+        patch(
+            "sys.argv",
+            ["ls-sql", "--remove-all-tags", "--commit", str(marked)],
+        ),
+        pytest.raises(SystemExit) as exc,
+    ):
+        main()
+
+    assert exc.value.code == 0
+    assert "0 file(s) committed, 0 skipped" in mock_out.getvalue()

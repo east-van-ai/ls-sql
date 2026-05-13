@@ -107,3 +107,55 @@ def test_cli_harvest_mode_option_b_filename_as_arg(tmp_path, freeze_date):
     assert exc.value.code == 0
     marked = next(tmp_path.glob("photo^^^*^^^.jpg"))
     assert marked is not None
+
+
+# -- hidden files --
+
+
+def test_cli_harvest_mode_option_b_directory_containing_hidden_files(
+    tmp_path, freeze_date
+):
+    """
+    main(): --harvest mode correctly processes filenames starting with a period (hidden files).
+    """
+    (tmp_path / "photo.jpg").write_text("fake image content")
+    (tmp_path / ".hidden-image.jpg").write_text("fake hidden image content")
+    (tmp_path / ".hidden-file").write_text("fake content")
+
+    with (
+        patch("sys.stdin.isatty", return_value=True),
+        patch("sys.stdout", new_callable=StringIO) as mock_out,
+        patch("sys.argv", ["ls-sql", "--harvest", "--commit", str(tmp_path)]),
+        pytest.raises(SystemExit) as exc,
+    ):
+        main()
+
+    assert exc.value.code == 0
+    assert "1 file(s) committed, 0 skipped" in mock_out.getvalue()
+    assert not (tmp_path / "photo.jpg").exists()  # renamed by harvester
+    assert (tmp_path / ".hidden-image.jpg").exists()
+    assert (tmp_path / ".hidden-file").exists()
+    marked = next(tmp_path.glob("photo^^^*^^^.jpg"))
+    assert marked is not None
+
+
+def test_cli_harvest_mode_option_b_hidden_filename(tmp_path, freeze_date):
+    """
+    main(): --harvest mode correctly processes a filename starting with a period (hidden file)
+    """
+    (tmp_path / ".photo.jpg").write_text("fake image content")
+
+    with (
+        patch("sys.stdin.isatty", return_value=True),
+        patch("sys.stdout", new_callable=StringIO) as mock_out,
+        patch(
+            "sys.argv",
+            ["ls-sql", "--harvest", "--commit", str(tmp_path / ".photo.jpg")],
+        ),
+        pytest.raises(SystemExit) as exc,
+    ):
+        main()
+
+    assert exc.value.code == 0
+    assert "0 file(s) committed, 0 skipped" in mock_out.getvalue()
+    assert (tmp_path / ".photo.jpg").exists()
