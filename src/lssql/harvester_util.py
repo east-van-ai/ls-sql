@@ -45,10 +45,14 @@ def is_already_harvested(filename: str) -> bool:
 
 def parse_ext_filter(ext_filter: str) -> set[str]:
     """
-    parse comma-separated extension string into a set of lowercase dotted extensions.
-    'jpg,png' -> {'.jpg', '.png'}
+    parse extension string into a set of lowercase dotted extensions.
+    semicolon or comma separated.
+    'jpg;png' or 'jpg,png' -> {'.jpg', '.png'}
     '' -> set()  -- empty means no filter, use DEFAULT_HARVEST_EXTS
     """
     if not ext_filter:
         return set()
-    return {f".{e.strip().lower().lstrip('.')}" for e in ext_filter.split(",")}
+    return {
+        f".{e.strip().lower().lstrip('.')}"
+        for e in ext_filter.replace(",", ";").split(";")
+    }

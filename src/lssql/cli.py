@@ -141,7 +141,7 @@ def run_set_mode(
     """
     if fh:
         # --fh mode: scan directory, match by hash, apply ops
-        hashes = {h.strip() for h in fh.split(",")}
+        hashes = {h.strip() for h in fh.replace(",", ";").split(";")}
         rows = scan_directory(target, recursive=recursive)
         targets = [
             r

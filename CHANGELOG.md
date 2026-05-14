@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [v0.14.1] - 2026-05-14
+
+### Added
+
+- ls:dw and ls:dh -- image width and height as separate tags, replaces ls:res
+
+### Changed
+
+- ls:fh hash prefix extended from 10 to 16 characters
+- semicolon is now the standard delimiter for --fh and --ext args; comma still accepted for both
+- HATFILE.md updated to reflect new tag definitions
+
 ## [v0.14.0] - 2026-05-13
 
 ### Added

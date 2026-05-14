@@ -1,7 +1,7 @@
 import os
 from lssql.harvester_au import build_au_tag_string
 from lssql.harvester_ex import build_ex_tag_string
-from lssql.harvester_ls import content_hash, extract_resolution, harvest_date
+from lssql.harvester_ls import content_hash, extract_dimension, harvest_date
 from lssql.harvester_util import (
     is_already_harvested,
     is_troublesome_name,
@@ -22,13 +22,16 @@ def build_harvested_filename(filename: str, directory: str = "") -> str:
 
     hd_tag = f"ls:hd={harvest_date()}"
     fh_tag = f"ls:fh={content_hash(filepath)}" if filepath else ""
-    res = extract_resolution(filepath, ext) if filepath else ""
-    res_tag = f"ls:res={res}" if res else ""
+    width, height = extract_dimension(filepath, ext) if filepath else ("", "")
+    dw_tag = f"ls:dw={width}" if width else ""
+    dh_tag = f"ls:dh={height}" if height else ""
     au_tags = build_au_tag_string(filepath, ext) if filepath else ""
     ex_tags = build_ex_tag_string(filepath, ext) if filepath else ""
     zi_tags = build_zi_tag_string(filepath, ext) if filepath else ""
 
-    tags = "^".join(filter(None, [hd_tag, fh_tag, res_tag, au_tags, ex_tags, zi_tags]))
+    tags = "^".join(
+        filter(None, [hd_tag, fh_tag, dw_tag, dh_tag, au_tags, ex_tags, zi_tags])
+    )
 
     if comment:
         return f"{original}{SEPARATOR}{tags}{SEPARATOR}{comment}{ext}"

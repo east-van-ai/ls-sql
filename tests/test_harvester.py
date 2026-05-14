@@ -44,7 +44,7 @@ def test_build_harvested_filename_includes_fh(tmp_path, freeze_date):
     assert "ls:fh=" in result
 
 
-def test_build_harvested_filename_fh_is_10_chars(tmp_path, freeze_date):
+def test_build_harvested_filename_fh_is_16_chars(tmp_path, freeze_date):
     f = tmp_path / "photo.jpg"
     f.write_text("fake image content")
     result = build_harvested_filename("photo.jpg", str(tmp_path))
@@ -53,7 +53,7 @@ def test_build_harvested_filename_fh_is_10_chars(tmp_path, freeze_date):
     fh_value = fh_part.split("=")[1].split("^")[0].split("^")[0]
     # strip extension if it crept in
     fh_value = fh_value.split(".")[0]
-    assert len(fh_value) == 10
+    assert len(fh_value) == 16
 
 
 # -- harvest_file --
@@ -66,7 +66,7 @@ def test_harvest_file_dry_run(tmp_path, freeze_date):
     f.write_text("fake image content")
     result = harvest_file(str(some), "photo.jpg", commit=False)
     assert result["status"] == "dry-run"
-    assert result["new_name"] == "photo^^^ls:hd=20260503^ls:fh=03754271b0^^^.jpg"
+    assert result["new_name"] == "photo^^^ls:hd=20260503^ls:fh=03754271b00a0e1c^^^.jpg"
 
 
 def test_harvest_file_commit(tmp_path, freeze_date):
@@ -76,8 +76,8 @@ def test_harvest_file_commit(tmp_path, freeze_date):
     result = harvest_file(str(tmp_path), "photo.jpg", commit=True)
 
     assert result["status"] == "renamed"
-    assert result["new_name"] == "photo^^^ls:hd=20260503^ls:fh=03754271b0^^^.jpg"
-    assert (tmp_path / "photo^^^ls:hd=20260503^ls:fh=03754271b0^^^.jpg").exists()
+    assert result["new_name"] == "photo^^^ls:hd=20260503^ls:fh=03754271b00a0e1c^^^.jpg"
+    assert (tmp_path / "photo^^^ls:hd=20260503^ls:fh=03754271b00a0e1c^^^.jpg").exists()
     assert not (tmp_path / "photo.jpg").exists()
 
 
@@ -124,8 +124,8 @@ def test_harvest_directory_commit(tmp_path, freeze_date):
     results = harvest_directory(str(tmp_path), commit=True)
 
     assert all(r["status"] == "renamed" for r in results)
-    assert (tmp_path / f"a^^^ls:hd=20260503^ls:fh=03754271b0^^^.jpg").exists()
-    assert (tmp_path / f"b^^^ls:hd=20260503^ls:fh=03754271b0^^^.png").exists()
+    assert (tmp_path / f"a^^^ls:hd=20260503^ls:fh=03754271b00a0e1c^^^.jpg").exists()
+    assert (tmp_path / f"b^^^ls:hd=20260503^ls:fh=03754271b00a0e1c^^^.png").exists()
 
 
 def test_harvest_directory_skips_hidden(tmp_path, freeze_date):
@@ -387,14 +387,14 @@ def test_verify_file_ok(tmp_path):
 def test_verify_file_changed(tmp_path):
     """file content changed -- status changed."""
 
-    harvested = "photo^^^ls:hd=20260501^ls:fh=0000000000^^^.jpg"
+    harvested = "photo^^^ls:hd=20260501^ls:fh=1234567890123456^^^.jpg"
     f = tmp_path / harvested
     f.write_bytes(b"hello")
 
     result = verify_file(str(tmp_path), harvested)
     assert result["status"] == "changed"
-    assert result["stored"] == "0000000000"
-    assert result["actual"] != "0000000000"
+    assert result["stored"] == "1234567890123456"
+    assert result["actual"] != "1234567890123456"
 
 
 def test_verify_file_not_harvested(tmp_path):
@@ -422,7 +422,7 @@ def test_verify_file_no_fh_tag(tmp_path):
 def test_verify_directory(tmp_path):
     """verify_directory returns results for all files."""
 
-    f = tmp_path / "photo^^^ls:hd=20260501^ls:fh=0000000000^^^.jpg"
+    f = tmp_path / "photo^^^ls:hd=20260501^ls:fh=1234567890123456^^^.jpg"
     f.write_bytes(b"hello")
 
     results = verify_directory(str(tmp_path))

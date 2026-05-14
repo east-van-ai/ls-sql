@@ -32,7 +32,7 @@ def parse_filename(filename: str) -> dict:
 def parse_tags(raw: str) -> dict:
     """
     parse tag string into a dict.
-    'sd:mn=sdxl^ls:fh=a3f2c8f91b' -> {'sd:mn': 'sdxl', 'ls:fh': 'a3f2c8f91b'}
+    'ls:hd=20260503^ls:fh=03754271b00a0e1c' -> {'ls:hd': '20260503', 'ls:fh': '03754271b00a0e1c'}
     """
     tags = {}
     if not raw:

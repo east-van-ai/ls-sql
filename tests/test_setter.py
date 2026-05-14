@@ -311,7 +311,7 @@ def test_rebuild_empty_tags():
 
 
 def test_set_file_dry_run(tmp_path, freeze_date):
-    f = tmp_path / "photo^^^ls:hd=20260503^ls:fh=ab2c3d4e5f^^^.jpg"
+    f = tmp_path / "photo^^^ls:hd=20260503^ls:fh=03754271b00a0e1c^^^.jpg"
     f.write_bytes(b"x")
 
     ops, _ = parse_set_string("ud:album=london")
@@ -323,7 +323,7 @@ def test_set_file_dry_run(tmp_path, freeze_date):
 
 
 def test_set_file_commit(tmp_path, freeze_date):
-    f = tmp_path / "photo^^^ls:hd=20260503^ls:fh=ab2c3d4e5f^^^.jpg"
+    f = tmp_path / "photo^^^ls:hd=20260503^ls:fh=03754271b00a0e1c^^^.jpg"
     f.write_bytes(b"x")
 
     ops, _ = parse_set_string("ud:album=london")
@@ -360,7 +360,7 @@ def test_set_file_harvest_first_commit(tmp_path, freeze_date):
 
 
 def test_set_file_no_change_is_skipped(tmp_path, freeze_date):
-    f = tmp_path / "photo^^^ls:hd=20260503^ls:fh=ab2c3d4e5f^ud:fruit=apple^^^.jpg"
+    f = tmp_path / "photo^^^ls:hd=20260503^ls:fh=03754271b00a0e1c^ud:fruit=apple^^^.jpg"
     f.write_bytes(b"x")
 
     # overwrite with same value -- no change
@@ -372,7 +372,10 @@ def test_set_file_no_change_is_skipped(tmp_path, freeze_date):
 
 
 def test_set_file_append(tmp_path, freeze_date):
-    f = tmp_path / "photo^^^ls:hd=20260503^ls:fh=ab2c3d4e5f^ud:weather=sunny^^^.jpg"
+    f = (
+        tmp_path
+        / "photo^^^ls:hd=20260503^ls:fh=03754271b00a0e1c^ud:weather=sunny^^^.jpg"
+    )
     f.write_bytes(b"x")
 
     ops, _ = parse_set_string("ud:weather+=rainy")
@@ -383,7 +386,10 @@ def test_set_file_append(tmp_path, freeze_date):
 
 
 def test_set_file_delete(tmp_path, freeze_date):
-    f = tmp_path / "photo^^^ls:hd=20260503^ls:fh=ab2c3d4e5f^ud:weather=sunny^^^.jpg"
+    f = (
+        tmp_path
+        / "photo^^^ls:hd=20260503^ls:fh=03754271b00a0e1c^ud:weather=sunny^^^.jpg"
+    )
     f.write_bytes(b"x")
 
     ops, _ = parse_set_string("ud:weather==")
@@ -397,8 +403,8 @@ def test_set_file_delete(tmp_path, freeze_date):
 
 
 def test_set_tags_directory_dry_run(tmp_path, freeze_date):
-    (tmp_path / "a^^^ls:hd=20260503^ls:fh=ab2c3d4e5f^^^.jpg").write_bytes(b"x")
-    (tmp_path / "b^^^ls:hd=20260503^ls:fh=cd4e5f6g7h^^^.jpg").write_bytes(b"x")
+    (tmp_path / "a^^^ls:hd=20260503^ls:fh=03754271b00a0e1c^^^.jpg").write_bytes(b"x")
+    (tmp_path / "b^^^ls:hd=20260503^ls:fh=03754271b00a0e1c^^^.jpg").write_bytes(b"x")
 
     ops, _ = parse_set_string("ud:trip=london")
     results = set_tags_directory(str(tmp_path), ops, commit=False)
@@ -411,8 +417,8 @@ def test_set_tags_directory_dry_run(tmp_path, freeze_date):
 def test_set_tags_directory_recursive(tmp_path, freeze_date):
     sub = tmp_path / "sub"
     sub.mkdir()
-    (tmp_path / "a^^^ls:hd=20260503^ls:fh=ab2c3d4e5f^^^.jpg").write_bytes(b"x")
-    (sub / "b^^^ls:hd=20260503^ls:fh=cd4e5f6g7h^^^.jpg").write_bytes(b"x")
+    (tmp_path / "a^^^ls:hd=20260503^ls:fh=03754271b00a0e1c^^^.jpg").write_bytes(b"x")
+    (sub / "b^^^ls:hd=20260503^ls:fh=03754271b00a0e1c^^^.jpg").write_bytes(b"x")
 
     ops, _ = parse_set_string("ud:trip=london")
     results = set_tags_directory(str(tmp_path), ops, commit=False, recursive=True)
@@ -421,8 +427,12 @@ def test_set_tags_directory_recursive(tmp_path, freeze_date):
 
 
 def test_set_tags_directory_skips_hidden(tmp_path, freeze_date):
-    (tmp_path / ".hidden^^^ls:hd=20260503^ls:fh=ab2c3d4e5f^^^.jpg").write_bytes(b"x")
-    (tmp_path / "visible^^^ls:hd=20260503^ls:fh=cd4e5f6g7h^^^.jpg").write_bytes(b"x")
+    (tmp_path / ".hidden^^^ls:hd=20260503^ls:fh=03754271b00a0e1c^^^.jpg").write_bytes(
+        b"x"
+    )
+    (tmp_path / "visible^^^ls:hd=20260503^ls:fh=03754271b00a0e1c^^^.jpg").write_bytes(
+        b"x"
+    )
 
     ops, _ = parse_set_string("ud:trip=london")
     results = set_tags_directory(str(tmp_path), ops, commit=False)

@@ -18,7 +18,9 @@ def test_round_trip_plain():
 
 
 def test_round_trip_harvested():
-    original = "IMG_4520^^^ls:fh=9b1d4e72ac^ud:2006-london=1^^^nice-to-meet-you.jpg"
+    original = (
+        "IMG_4520^^^ls:fh=03754271b00a0e1c^ud:2006-london=1^^^nice-to-meet-you.jpg"
+    )
     parsed = parse_filename(original)
     reconstructed = (
         parsed["original"]
@@ -57,10 +59,10 @@ def test_plain_filename():
 
 def test_harvested_filename():
     result = parse_filename(
-        "IMG_4520^^^ls:fh=9b1d4e72ac^ud:2006-london=1^^^nice-to-meet-you.jpg"
+        "IMG_4520^^^ls:fh=03754271b00a0e1c^ud:2006-london=1^^^nice-to-meet-you.jpg"
     )
     assert result["original"] == "IMG_4520"
-    assert result["tags"]["ls:fh"] == "9b1d4e72ac"
+    assert result["tags"]["ls:fh"] == "03754271b00a0e1c"
     assert result["tags"]["ud:2006-london"] == "1"
     assert result["comment"] == "nice-to-meet-you"
     assert result["harvested"] is True
@@ -68,28 +70,28 @@ def test_harvested_filename():
 
 def test_harvested_filename_no_head():
     result = parse_filename(
-        "^^^ls:fh=9b1d4e72ac^ud:2006-london=1^^^nice-to-meet-you.jpg"
+        "^^^ls:fh=03754271b00a0e1c^ud:2006-london=1^^^nice-to-meet-you.jpg"
     )
     assert result["original"] == ""
-    assert result["tags"]["ls:fh"] == "9b1d4e72ac"
+    assert result["tags"]["ls:fh"] == "03754271b00a0e1c"
     assert result["tags"]["ud:2006-london"] == "1"
     assert result["comment"] == "nice-to-meet-you"
     assert result["harvested"] is True
 
 
 def test_harvested_filename_no_tail():
-    result = parse_filename("IMG_4520^^^ls:fh=9b1d4e72ac^ud:2006-london=1^^^.jpg")
+    result = parse_filename("IMG_4520^^^ls:fh=03754271b00a0e1c^ud:2006-london=1^^^.jpg")
     assert result["original"] == "IMG_4520"
-    assert result["tags"]["ls:fh"] == "9b1d4e72ac"
+    assert result["tags"]["ls:fh"] == "03754271b00a0e1c"
     assert result["tags"]["ud:2006-london"] == "1"
     assert result["comment"] == ""
     assert result["harvested"] is True
 
 
 def test_harvested_filename_no_tail_hat():
-    result = parse_filename("IMG_4520^^^ls:fh=9b1d4e72ac^ud:2006-london=1.jpg")
+    result = parse_filename("IMG_4520^^^ls:fh=03754271b00a0e1c^ud:2006-london=1.jpg")
     assert result["original"] == "IMG_4520"
-    assert result["tags"]["ls:fh"] == "9b1d4e72ac"
+    assert result["tags"]["ls:fh"] == "03754271b00a0e1c"
     assert result["tags"]["ud:2006-london"] == "1"
     assert result["comment"] == ""
     assert result["harvested"] is True
@@ -97,11 +99,11 @@ def test_harvested_filename_no_tail_hat():
 
 def test_harvested_filename_too_many():
     result = parse_filename(
-        "IMG_4520^^^ls:fh=9b1d4e72ac^ud:2006-london=1^^^nice-to-meet-you^^^.jpg"
+        "IMG_4520^^^ls:fh=03754271b00a0e1c^ud:2006-london=1^^^nice-to-meet-you^^^.jpg"
     )
     assert (
         result["original"]
-        == "IMG_4520^^^ls:fh=9b1d4e72ac^ud:2006-london=1^^^nice-to-meet-you^^^"
+        == "IMG_4520^^^ls:fh=03754271b00a0e1c^ud:2006-london=1^^^nice-to-meet-you^^^"
     )
     assert result["tags"] == {}
     assert result["comment"] == ""

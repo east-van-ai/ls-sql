@@ -28,8 +28,8 @@ The metadata lives between `^^^` boundaries, visible to any file browser,
 searchable by Spotlight, greppable from Terminal.
 
 ```text
-photo^^^ls:hd=20260428^ls:fh=a3f2c8f91b^ex:cam=canon-r5^^^london-2006.jpg
-^--- original ---^^--- structured metadata ---^^--- human comment ---^
+IMAGE-1234567890^^^ls:hd=20260428^ls:fh=03754271b00a0e1c^ls:dw=512^ls:dh=768^ex:cam=canon-r5^^^2006-london-lunch-at-oxo.jpg
+^-- original ---^^^--- structured metadata -------------------------------------------------^^^---- human comment -----^
 ```
 
 Disposable and rebuildable. The file is the record.
@@ -78,7 +78,7 @@ All metadata uses `namespace:key=value` pairs separated by `^`. Order does not
 matter. Missing fields are skipped cleanly.
 
 ```text
-ex:dto=2024:07:12^ls:fh=a3f2c8f91b^ls:res=512x768
+ls:hd=20260503^ls:fh=03754271b00a0e1c^ls:dw=512^ls:dh=768^ex:dto=2024:07:12
 ```
 
 ### Character budget
@@ -120,8 +120,9 @@ because they appear in filenames and character budget matters.
 
 ```text
 ls:hd    Harvest date (YYYYMMDD)
-ls:fh    File content hash (10 chars SHA256, content fingerprint)
-ls:res   Image resolution (WIDTHxHEIGHT)
+ls:fh    File content hash (16 chars SHA256, content fingerprint)
+ls:dw   Image width
+ls:dh   Image height
 
 ex:dto   Exif DateTimeOriginal
 ex:cam   Camera model, slugified (e.g. canon-r5)
@@ -275,7 +276,7 @@ applies the tag. The user does not need to run `--harvest` first.
 
 #### `--fh` flag
 
-Select files by content hash. Comma-separated list of 10-char SHA256 prefixes.
+Select files by content hash. Comma-separated list of 16-char SHA256 prefixes.
 Hash does not change when the filename changes -- stable selector across renames.
 
 ```bash
@@ -349,7 +350,7 @@ No database dependency. No ORM. No migration files.
 ```toml
 [project]
 name = "ls-sql"
-version = "0.14.0"
+version = "0.14.1"
 requires-python = ">=3.14"
 
 [project.scripts]

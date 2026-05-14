@@ -89,8 +89,8 @@ ls-sql --fh="ab2c3d,9fs7g1" --set "ud:album=london-2006" --commit ~/photos
 standard using `^^^` as a harvest boundary.
 
 ```text
-00234-1234567890^^^sd:mn=sdxl^sd:sampler=euler-a^ex:dto=2024:07:12^ls:fh=a3f2c8f91b^ls:res=512x768^ls:hd=20260415^^^mom-at-wedding-1994-06-24.png
-^--- original, untouched ---^^--- structured metadata, tagged key-value pairs ------------------------^^--- human comment ----------------------^
+IMG-1234567890-1234567890^^^ls:hd=20260503^ls:fh=03754271b00a0e1c^ls:dw=512^ls:dh=768^ex:dto=2024:07:12^^^mom-at-wedding-1994-06-24.png
+^-- original, untouched -^^^--- structured metadata, tagged key-value pairs ---------------------------^^^--- human comment -------^
 ```
 
 - Left of first `^^^` -- original filename, never modified
@@ -119,8 +119,9 @@ extensions (e.g. `myapp:key=value`).
 
 ```text
 ls:hd    Harvest date
-ls:fh    File content hash (10 chars SHA256, content fingerprint)
-ls:res   Image resolution
+ls:fh    File content hash (16 chars SHA256, content fingerprint)
+ls:dw   Image width
+ls:dh   Image height
 
 ex:dto   EXIF DateTimeOriginal
 ex:cam   Camera model, slugified
@@ -141,9 +142,9 @@ ud:*     Anything. Example: ud:album=london-2006
 Albums are implemented entirely through `ud:` tags. No database. No schema.
 
 ```text
-IMG_4520^^^ex:dto=2006:03:15^ls:fh=9b1d4e72ac^ud:2006-london=1^ud:where=palace^^^nice-to-meet-you.jpg
-IMG_4521^^^ex:dto=2006:04:10^ls:fh=c3f8a12b91^ud:2006-london=2^ud:where=thames^^^is-it-raining.jpg
-IMG_4522^^^ex:dto=2006:04:15^ls:fh=a3f2c8f91b^ud:2006-london=3^ud:where=london-eye^^^you-might-melt-in-rain.jpg
+IMG_4520^^^ls:hd=20260503^ls:fh=9b1d4e72ac6a0mha^ex:dto=2006:03:15^ud:2006-london=1^ud:where=palace^^^nice-to-meet-you.jpg
+IMG_4521^^^ls:hd=20260503^ls:fh=c3f8a12b916531uj^ex:dto=2006:04:10^ud:2006-london=2^ud:where=thames^^^is-it-raining.jpg
+IMG_4522^^^ls:hd=20260503^ls:fh=03754271b00a0e1c^ex:dto=2006:04:15^ud:2006-london=3^ud:where=london-eye^^^you-might-melt-in-rain.jpg
 ```
 
 Query an album:
@@ -157,8 +158,8 @@ ls-sql --query "SELECT * WHERE ud:2006-london IS NOT NULL" ~/photos
 Output prints full path, pipeable, composable result.
 
 ```text
-/Users/go/SD/outputs/00234^^^sd:mn=sdxl^ls:fh=a3f2c8f91b^^^.png
-/Users/go/SD/outputs/00891^^^sd:mn=flux^ls:fh=9b1d4e72ac^^^dog-in-tuxedo.png
+/Users/jake/outputs/00234^^^ls:hd=20260503^ls:fh=03754271b00a0e1c^sd:mn=sdxl^^^.png
+/Users/jake/outputs/00891^^^ls:hd=20260503^ls:fh=6531uj4sbu9a0mha^sd:mn=flux^^^dog-in-tuxedo.png
 ```
 
 Pipe it anywhere:
