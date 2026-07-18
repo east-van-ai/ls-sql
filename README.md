@@ -10,9 +10,11 @@
 
 Software dies. Filenames don't.
 
-Every file management tool stores metadata in a database separate from the files. The database drifts. Files move. Records go stale. Orphans accumulate. You lose years of organisation because a catalog got corrupted.
+Every file management tool stores metadata in a database separate from the files. The database drifts. Files move. Records go stale. Orphans accumulate. You lose years of organisation because a catalogue got corrupted.
 
-`ls-sql` takes a different approach. Metadata is encoded and lives in the filename itself, visible to any file browser, searchable by Spotlight, greppable from Terminal -- no app required. It is disposable and rebuildable from filenames alone in seconds.
+`ls-sql` takes a different approach. Metadata is encoded directly in the filename itself -- visible to any file browser, searchable by Spotlight, greppable from Terminal. No app required. Disposable and rebuildable from filenames alone in seconds.
+
+---
 
 ## Design principles
 
@@ -20,9 +22,11 @@ Every file management tool stores metadata in a database separate from the files
 - The filename is the cache. No separate database required.
 - Safe by default -- dry-run unless `--commit` is explicit.
 - Unix citizen -- pipeable, composable, stays out of the way.
-- File hash -- fast lookup without losing filename flexibility.
-- Fully reversible -- `--remove-all-tags` puts everything back.
+- File hash -- stable content fingerprint that survives renames.
+- Fully reversible -- `--remove-all-tags` restores original filenames exactly.
 - Target platform is macOS. 255 character filename limit applies.
+
+---
 
 ## Quick start
 
@@ -33,10 +37,10 @@ ls-sql --harvest --dry-run ~/SD/outputs
 # Commit the harvest
 ls-sql --harvest --commit ~/SD/outputs
 
-# Query fresh from filesystem
+# Query the filesystem
 ls-sql ~/SD/outputs
 
-# SQL query (FROM clause omitted -- there is only one thing to query)
+# SQL query
 ls-sql --query "SELECT * WHERE ex:cam='fujifilm-x-t5'" ~/photos
 
 # Recursive
@@ -47,11 +51,11 @@ ls-sql --remove-all-tags --dry-run ~/photos
 ls-sql --remove-all-tags --commit ~/photos
 ```
 
+---
+
 ## Setting tags manually
 
-`--set` writes user-defined tags directly into filenames. Harvest-first is
-automatic -- if a file has not been harvested yet, `--set` harvests it first,
-then applies the tag.
+`--set` writes user-defined tags directly into filenames. If a file has not been harvested yet, `--set` harvests it first, then applies the tag.
 
 ```bash
 # Set a tag on a single file (dry-run by default)
@@ -64,33 +68,47 @@ ls-sql --set "ud:album=london-2006" --commit photo.jpg
 ls-sql --set "ud:album=london-2006^ud:where=thames" --commit photo.jpg
 
 # Append to an existing value
-ls-sql --set "ud:tags+=rainy" --commit photo.jpg
+ls-sql --set "ud:weather+=rainy" --commit photo.jpg
 
 # Remove a specific value
-ls-sql --set "ud:tags-=rainy" --commit photo.jpg
+ls-sql --set "ud:weather-=rainy" --commit photo.jpg
 
 # Remove a tag entirely
-ls-sql --set "ud:tags-=" --commit photo.jpg
+ls-sql --set "ud:weather==" --commit photo.jpg
 
 # Apply to a whole directory
 ls-sql --set "ud:trip=london-2006" --commit ~/photos/london
 
-# Apply to files matching a query -- pipe pattern
-ls-sql --query "SELECT * WHERE ex:cam='fujifilm-x-t5'" --quiet ~/photos \
-  | ls-sql --set "ud:gear=fuji" --commit
-
 # Select by content hash -- hash does not change when filename changes
-ls-sql --fh="ab2c3d,9fs7g1" --set "ud:album=london-2006" --commit ~/photos
+ls-sql --fh="ab2c3d;9fs7g1" --set "ud:album=london-2006" --commit ~/photos
 ```
+
+---
+
+## Pipe mode
+
+`ls-sql` reads from stdin automatically when piped. Output is full path per line, composable with standard Unix tools.
+
+```bash
+# Count matches
+ls-sql --query "SELECT * WHERE sd:mn='flux'" . | wc -l
+
+# Open results
+ls-sql . | awk '{print $1}' | xargs open
+
+# Grep output directly
+ls-sql -R . | grep "euler-a"
+```
+
+---
 
 ## Filename convention
 
-`ls-sql` implements the **Hatfile** convention -- a filename-embedded metadata
-standard using `^^^` as a harvest boundary.
+`ls-sql` implements the **Hatfile** convention -- a filename-embedded metadata standard using `^^^` as a harvest boundary.
 
 ```text
 IMG-1234567890-1234567890^^^ls:hd=20260503^ls:fh=03754271b00a0e1c^ls:dw=512^ls:dh=768^ex:dto=2024:07:12^^^mom-at-wedding-1994-06-24.png
-^-- original, untouched -^^^--- structured metadata, tagged key-value pairs ---------------------------^^^--- human comment -------^
+^-- original, untouched --^^^--- structured metadata, tagged key-value pairs --------------------------^^^--- human comment ------^
 ```
 
 - Left of first `^^^` -- original filename, never modified
@@ -98,30 +116,29 @@ IMG-1234567890-1234567890^^^ls:hd=20260503^ls:fh=03754271b00a0e1c^ls:dw=512^ls:d
 - Right of second `^^^` -- free human comment, optional
 - Target: under 200 characters total
 
-## Tag namespaces
+See [HATFILE.md](HATFILE.md) for the full convention.
 
-Namespaces keep tags organised and avoid collisions between sources.
+---
+
+## Tag namespaces
 
 ```text
 ls:    ls-sql native tags          (2-letter, reserved)
-ex:    EXIF namespace              (2-letter, reserved)
+ex:    EXIF metadata               (2-letter, reserved)
 au:    Audio metadata              (2-letter, reserved)
-zi:    ZIP/CBZ metadata            (2-letter, reserved)
-sd:    Stable Diffusion            (2-letter, reserved, v1.1)
+zi:    ZIP / CBZ metadata          (2-letter, reserved)
 ud:    User defined custom tags    (blessed user namespace)
 ```
 
-2-letter namespaces are reserved for ls-sql built-in harvesters. Use `ud:` for
-custom tags. Use 1-letter or 3-letter+ namespaces for your own structured
-extensions (e.g. `myapp:key=value`).
+2-letter namespaces are reserved for ls-sql built-in harvesters. Use `ud:` for custom tags. Use 1-letter or 3-letter+ namespaces for your own extensions (e.g. `myapp:key=value`).
 
 ### Tag reference
 
 ```text
-ls:hd    Harvest date
-ls:fh    File content hash (16 chars SHA256, content fingerprint)
-ls:dw   Image width
-ls:dh   Image height
+ls:hd    Harvest date (YYYYMMDD)
+ls:fh    File content hash (16 chars SHA-256)
+ls:dw    Image width
+ls:dh    Image height
 
 ex:dto   EXIF DateTimeOriginal
 ex:cam   Camera model, slugified
@@ -137,7 +154,9 @@ zi:ext   ZIP content types (semicolon-separated)
 ud:*     Anything. Example: ud:album=london-2006
 ```
 
-### User defined tags and albums
+---
+
+## Albums
 
 Albums are implemented entirely through `ud:` tags. No database. No schema.
 
@@ -153,42 +172,22 @@ Query an album:
 ls-sql --query "SELECT * WHERE ud:2006-london IS NOT NULL" ~/photos
 ```
 
-## Output style
-
-Output prints full path, pipeable, composable result.
-
-```text
-/Users/jake/outputs/00234^^^ls:hd=20260503^ls:fh=03754271b00a0e1c^sd:mn=sdxl^^^.png
-/Users/jake/outputs/00891^^^ls:hd=20260503^ls:fh=6531uj4sbu9a0mha^sd:mn=flux^^^dog-in-tuxedo.png
-```
-
-Pipe it anywhere:
-
-```bash
-ls-sql -R . | grep "euler-a"
-ls-sql --query "SELECT * WHERE sd:mn='flux'" . | wc -l
-ls-sql . | awk '{print $1}' | xargs open
-```
-
-Use `--quiet` to suppress the summary line and get clean path-per-line output
-for piping:
-
-```bash
-ls-sql --query "SELECT * WHERE ex:cam='fujifilm-x-t5'" --quiet ~/photos \
-  | ls-sql --set "ud:gear=fuji" --commit
-```
+---
 
 ## Supported file types
 
-- PNG  -- Portable - Stable Diffusion / A1111 generated images
-- JPG  -- Photographer EXIF data
-- GIF  -- Traditional - Graphics Interchange Format
-- WEBP -- Modern - Lossless or Lossy
-- MP3  -- Music ID3 tags
-- M4A  -- MP4 iTunes atoms
-- ZIP  -- file count, content types, dot entries, directory structure
-- CBZ  -- Comic Book ZIP, same as ZIP
-- PDF  -- planned
+```text
+JPG    EXIF data -- camera, date, aperture
+PNG    Image dimensions
+GIF    Image dimensions
+WEBP   Image dimensions
+MP3    ID3 tags -- artist, album, title
+M4A    iTunes atoms -- artist, album, title
+ZIP    Entry count, content types
+CBZ    Comic Book ZIP, same as ZIP
+```
+
+---
 
 ## Duplicate detection
 
@@ -201,27 +200,19 @@ ls-sql --query "SELECT * WHERE ls:fh IS NOT NULL" -R . \
   | awk 'prev==$1 {print} {prev=$1}'
 ```
 
-## Installation
-
-```bash
-brew install --cask ls-sql
-```
+---
 
 ## Performance
 
 ls-sql reads filenames directly. File size is irrelevant.
 
-### Scale reference
-
 ```text
  Casual photographer:   5,000 - 20,000 files   totally normal
 Serious photographer:  20,000 - 50,000 files   power user
        SD enthusiast:  10,000 - 30,000 files   reasonable
-   Obsessive SD user:  50,000+ files           okay buddy 😄
+   Obsessive SD user:  50,000+ files           okay buddy
  100,000 files @ 1MB:       ~100GB             you are an enterprise user
 ```
-
-### Speed reference
 
 ```text
     External HDD:   ~20,000 files per second
@@ -229,16 +220,15 @@ External USB SSD:   ~50,000 files per second
     Internal SSD:  ~100,000 files per second
 ```
 
-If your library exceeds these comfortable limits, consider faster storage.
-ls-sql is not the bottleneck -- your drive is.
+---
 
 ## When to stop using ls-sql
 
 - More than 10 tags per file? Your problem is bigger than a filename can solve.
-- 100GB+ image library? You need enterprise tooling and a budget to match.
+- 100GB+ library? You need enterprise tooling and a budget to match.
 - Need multi-user, networked, or cloud storage? Same answer.
 
-Congratulations. Go get proper gear. 🎣
+---
 
 ## Target users
 
@@ -247,15 +237,14 @@ Congratulations. Go get proper gear. 🎣
 - Small web servers with image collections
 - Anyone who lives in Terminal
 
-## What's next? 🔮
+---
 
-- Command line album viewer for Kitty, iTerm2, or Terminal
-- Harvester with AI prompt summarizer
+## East Van AI -- AI for the rest of us
 
-## Status
+More at [github.com/east-van-ai](https://github.com/east-van-ai)
 
-Final development phase. See [DESIGN.md](DESIGN.md) for full specification.
+Questions: <east-van-ai@proton.me>
 
-## License
+---
 
-MIT
+MIT License. Copyright (c) 2026 Go Nakamaru.

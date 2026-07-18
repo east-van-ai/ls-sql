@@ -1,3 +1,9 @@
+# ==============================================
+# ls-sql -- filesystem query engine
+# East Van AI -- AI for the rest of us!
+# https://github.com/east-van-ai
+# ==============================================
+
 import os
 from lssql.harvester_au import build_au_tag_string
 from lssql.harvester_ex import build_ex_tag_string

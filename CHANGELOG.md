@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [v1.0.0] - 2026-05-19
+
+### Added
+
+- Standardized comments across the codebase
+
+### Changed
+
+- Updated documents for public release
+
 ## [v0.14.1] - 2026-05-14
 
 ### Added

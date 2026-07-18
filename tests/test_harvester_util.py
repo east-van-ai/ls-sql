@@ -1,3 +1,9 @@
+# ==============================================
+# ls-sql -- filesystem query engine
+# East Van AI -- AI for the rest of us!
+# https://github.com/east-van-ai
+# ==============================================
+
 import pytest
 from src.lssql.harvester_util import (
     is_already_harvested,
