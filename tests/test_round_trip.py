@@ -63,8 +63,7 @@ def test_verify_after_harvest_is_ok(tmp_path, freeze_date):
     f = tmp_path / "photo.jpg"
     f.write_text("fake image content")
 
-    result = harvest_file(str(tmp_path), "photo.jpg", commit=True)
-    harvested_name = result["new_name"]
+    harvest_file(str(tmp_path), "photo.jpg", commit=True)
 
     results = verify_directory(str(tmp_path))
 

@@ -6,6 +6,29 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [v1.1.0] - 2026-07-19
+
+### Fixed
+
+- `pipx install` now works with git+https: pinned runtime dependencies are 
+  declared in `pyproject.toml` `[project] dependencies`. Previously it failed 
+  at startup with the `pysqlite3` install hint.
+
+### Added
+
+- RELEASING.md -- stable-branch release model; `pipx install` from `@stable`
+- `.claude/settings.json` with house permission rules
+
+### Changed
+
+- BREAKING: the target directory/file is now passed with a required `--target` flag; the positional form (`ls-sql .`) is removed. Explicit flags make invocations self-describing for AI agents and let permission guardrails match reliably on `--target`.
+- CLI grammar aligned with the mdmap house style: bare `ls-sql` on a TTY now prints the built-in help banner and exits 0 (was: missing-`--target` error, exit 1); errors print as `ls-sql: <message>` plus a compact usage line instead of dumping the full `--help` text; piped passthrough mode is unchanged by design
+- DESIGN.md gained a "CLI grammar" section; README restructured to the house heading order with new Example output and Install sections; stale `--quiet` references removed and the `--set` pipe pattern marked as not yet implemented (V2)
+- CI always runs (changed-files gating removed) and lints with ruff in addition to black
+- `requirements.txt` and `requirements-dev.txt` are now not including the pinned versions
+- README quick start gained tag-presence (`IS NOT NULL`) and `CONTAINS` query examples
+- Planned-feature references say v1.x instead of v1.1; install URL points at the east-van-ai org
+
 ## [v1.0.0] - 2026-05-19
 
 ### Added

@@ -59,7 +59,7 @@ def test_cli_harvest_dry_run_subprocess(tmp_path):
     (tmp_path / "photo.jpg").write_text("fake image content")
 
     result = subprocess.run(
-        [_ls_sql_bin(), "--harvest", str(tmp_path)],
+        [_ls_sql_bin(), "--harvest", "--target", str(tmp_path)],
         capture_output=True,
         text=True,
     )
@@ -75,7 +75,7 @@ def test_cli_harvest_commit_subprocess(tmp_path):
     (tmp_path / "photo.jpg").write_text("fake image content")
 
     result = subprocess.run(
-        [_ls_sql_bin(), "--harvest", "--commit", str(tmp_path)],
+        [_ls_sql_bin(), "--harvest", "--commit", "--target", str(tmp_path)],
         capture_output=True,
         text=True,
     )
@@ -91,12 +91,12 @@ def test_cli_verify_exit_code_zero_subprocess(tmp_path):
     (tmp_path / "photo.jpg").write_text("fake image content")
 
     subprocess.run(
-        [_ls_sql_bin(), "--harvest", "--commit", str(tmp_path)],
+        [_ls_sql_bin(), "--harvest", "--commit", "--target", str(tmp_path)],
         capture_output=True,
     )
 
     result = subprocess.run(
-        [_ls_sql_bin(), "--verify", str(tmp_path)],
+        [_ls_sql_bin(), "--verify", "--target", str(tmp_path)],
         capture_output=True,
         text=True,
     )
@@ -110,7 +110,7 @@ def test_cli_verify_exit_code_one_subprocess(tmp_path):
     (tmp_path / "photo.jpg").write_text("fake image content")
 
     subprocess.run(
-        [_ls_sql_bin(), "--harvest", "--commit", str(tmp_path)],
+        [_ls_sql_bin(), "--harvest", "--commit", "--target", str(tmp_path)],
         capture_output=True,
     )
 
@@ -118,7 +118,7 @@ def test_cli_verify_exit_code_one_subprocess(tmp_path):
     harvested.write_text("tampered content")
 
     result = subprocess.run(
-        [_ls_sql_bin(), "--verify", str(tmp_path)],
+        [_ls_sql_bin(), "--verify", "--target", str(tmp_path)],
         capture_output=True,
         text=True,
     )
@@ -128,7 +128,7 @@ def test_cli_verify_exit_code_one_subprocess(tmp_path):
 
 @skip_on_ci
 def test_cli_no_path_subprocess():
-    """subprocess: missing path prints error and exits 1."""
+    """subprocess: missing --target prints ls-sql: error and exits 1."""
     result = subprocess.run(
         [_ls_sql_bin(), "--harvest"],
         capture_output=True,
@@ -136,7 +136,7 @@ def test_cli_no_path_subprocess():
     )
 
     assert result.returncode == 1
-    assert "error" in result.stderr
+    assert "ls-sql: " in result.stderr
 
 
 # -- Option B: main() direct --
@@ -149,7 +149,7 @@ def test_cli_harvest_dry_run_main(tmp_path, freeze_date):
     with (
         patch("sys.stdin.isatty", return_value=True),
         patch("sys.stdout", new_callable=StringIO) as mock_out,
-        patch("sys.argv", ["ls-sql", "--harvest", str(tmp_path)]),
+        patch("sys.argv", ["ls-sql", "--harvest", "--target", str(tmp_path)]),
         pytest.raises(SystemExit) as exc,
     ):
         main()
@@ -166,7 +166,9 @@ def test_cli_harvest_commit_main(tmp_path, freeze_date):
     with (
         patch("sys.stdin.isatty", return_value=True),
         patch("sys.stdout", new_callable=StringIO) as mock_out,
-        patch("sys.argv", ["ls-sql", "--harvest", "--commit", str(tmp_path)]),
+        patch(
+            "sys.argv", ["ls-sql", "--harvest", "--commit", "--target", str(tmp_path)]
+        ),
         pytest.raises(SystemExit) as exc,
     ):
         main()
@@ -183,7 +185,10 @@ def test_cli_remove_all_tags_main(tmp_path, freeze_date):
     with (
         patch("sys.stdin.isatty", return_value=True),
         patch("sys.stdout", new_callable=StringIO) as mock_out,
-        patch("sys.argv", ["ls-sql", "--remove-all-tags", "--commit", str(tmp_path)]),
+        patch(
+            "sys.argv",
+            ["ls-sql", "--remove-all-tags", "--commit", "--target", str(tmp_path)],
+        ),
         pytest.raises(SystemExit) as exc,
     ):
         main()
@@ -200,7 +205,9 @@ def test_cli_verify_ok_main(tmp_path, freeze_date):
     with (
         patch("sys.stdin.isatty", return_value=True),
         patch("sys.stdout", new_callable=StringIO),
-        patch("sys.argv", ["ls-sql", "--harvest", "--commit", str(tmp_path)]),
+        patch(
+            "sys.argv", ["ls-sql", "--harvest", "--commit", "--target", str(tmp_path)]
+        ),
         pytest.raises(SystemExit),
     ):
         main()
@@ -208,7 +215,7 @@ def test_cli_verify_ok_main(tmp_path, freeze_date):
     with (
         patch("sys.stdin.isatty", return_value=True),
         patch("sys.stdout", new_callable=StringIO),
-        patch("sys.argv", ["ls-sql", "--verify", str(tmp_path)]),
+        patch("sys.argv", ["ls-sql", "--verify", "--target", str(tmp_path)]),
         pytest.raises(SystemExit) as exc,
     ):
         main()
@@ -223,7 +230,9 @@ def test_cli_verify_changed_main(tmp_path, freeze_date):
     with (
         patch("sys.stdin.isatty", return_value=True),
         patch("sys.stdout", new_callable=StringIO),
-        patch("sys.argv", ["ls-sql", "--harvest", "--commit", str(tmp_path)]),
+        patch(
+            "sys.argv", ["ls-sql", "--harvest", "--commit", "--target", str(tmp_path)]
+        ),
         pytest.raises(SystemExit),
     ):
         main()
@@ -234,7 +243,7 @@ def test_cli_verify_changed_main(tmp_path, freeze_date):
     with (
         patch("sys.stdin.isatty", return_value=True),
         patch("sys.stdout", new_callable=StringIO),
-        patch("sys.argv", ["ls-sql", "--verify", str(tmp_path)]),
+        patch("sys.argv", ["ls-sql", "--verify", "--target", str(tmp_path)]),
         pytest.raises(SystemExit) as exc,
     ):
         main()
@@ -352,3 +361,73 @@ def test_pipe_mode_empty_stdin():
 
     assert exc.value.code == 0
     assert mock_out.getvalue() == ""
+
+
+# -- CLI grammar (mdmap house style) --
+
+
+def test_cli_bare_invocation_prints_banner_main():
+    """main(): bare ls-sql on a TTY prints the docstring banner, exits 0."""
+    with (
+        patch("sys.stdin.isatty", return_value=True),
+        patch("sys.stdout", new_callable=StringIO) as mock_out,
+        patch("sys.argv", ["ls-sql"]),
+        pytest.raises(SystemExit) as exc,
+    ):
+        main()
+
+    assert exc.value.code == 0
+    out = mock_out.getvalue()
+    assert "ls-sql" in out
+    assert "Usage:" in out
+    assert "Exit codes:" in out
+
+
+def test_cli_missing_target_usage_error_main():
+    """main(): a flag without --target prints ls-sql: error + USAGE, exits 1."""
+    with (
+        patch("sys.stdin.isatty", return_value=True),
+        patch("sys.stderr", new_callable=StringIO) as mock_err,
+        patch("sys.argv", ["ls-sql", "--harvest"]),
+        pytest.raises(SystemExit) as exc,
+    ):
+        main()
+
+    assert exc.value.code == 1
+    err = mock_err.getvalue()
+    assert "ls-sql: --target is required" in err
+    assert "Usage: ls-sql --target PATH" in err
+    # compact USAGE only -- no full argparse help dump
+    assert "show this help message" not in err
+
+
+def test_cli_target_not_found_error_main(tmp_path):
+    """main(): a nonexistent --target prints ls-sql: error + USAGE, exits 1."""
+    missing = tmp_path / "does-not-exist"
+
+    with (
+        patch("sys.stdin.isatty", return_value=True),
+        patch("sys.stderr", new_callable=StringIO) as mock_err,
+        patch("sys.argv", ["ls-sql", "--target", str(missing)]),
+        pytest.raises(SystemExit) as exc,
+    ):
+        main()
+
+    assert exc.value.code == 1
+    err = mock_err.getvalue()
+    assert "ls-sql: directory or file not found" in err
+    assert "Usage: ls-sql --target PATH" in err
+
+
+def test_cli_unknown_flag_exits_two_main():
+    """main(): an unknown flag is an argparse error, exit 2."""
+    with (
+        patch("sys.stdin.isatty", return_value=True),
+        patch("sys.stderr", new_callable=StringIO) as mock_err,
+        patch("sys.argv", ["ls-sql", "--nope"]),
+        pytest.raises(SystemExit) as exc,
+    ):
+        main()
+
+    assert exc.value.code == 2
+    assert "unrecognized arguments" in mock_err.getvalue()

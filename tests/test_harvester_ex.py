@@ -10,12 +10,10 @@ uses piexif to write real EXIF tags into tmp files.
 """
 
 import piexif
-import pytest
 from lssql.harvester_ex import build_ex_tag_string, extract_jpg_tags
 
 
 from PIL import Image
-import io
 
 
 def make_jpg(path):

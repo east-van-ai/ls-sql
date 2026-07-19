@@ -52,7 +52,7 @@ def parse_set_string(tag_string: str) -> tuple[list[dict], str | None]:
         {'op': '==',    'key': 'ud:old',        'values': {''}}
     """
     if not tag_string or not tag_string.strip():
-        return [], "error: empty --set string"
+        return [], "empty --set string"
 
     ops = []
 
@@ -75,21 +75,21 @@ def parse_set_string(tag_string: str) -> tuple[list[dict], str | None]:
             key, value = part.split("=", 1)
             op = "="
         else:
-            return [], f"error: malformed --set expression: '{part}'"
+            return [], f"malformed --set expression: '{part}'"
 
         key = key.strip()
         value = value.strip()
 
         if not key:
-            return [], f"error: malformed --set expression: '{part}'"
+            return [], f"malformed --set expression: '{part}'"
 
         if ":" not in key:
-            return [], f"error: missing namespace in key: '{key}' -- use ud:key=value"
+            return [], f"missing namespace in key: '{key}' -- use ud:key=value"
 
         if is_protected_namespace(key):
             namespace = key.split(":")[0]
             return [], (
-                f"error: '{key}' -- '{namespace}:' is a reserved namespace. "
+                f"'{key}' -- '{namespace}:' is a reserved namespace. "
                 f"use ud: or 3-letter+ namespaces."
             )
 
@@ -97,7 +97,7 @@ def parse_set_string(tag_string: str) -> tuple[list[dict], str | None]:
         ops.append({"op": op, "key": key, "values": values})
 
     if not ops:
-        return [], "error: no valid operations in --set string"
+        return [], "no valid operations in --set string"
 
     return ops, None
 

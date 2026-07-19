@@ -16,9 +16,6 @@ covers:
     set_tags_directory  -- directory walk, recursive
 """
 
-import os
-import pytest
-
 from lssql.setter import (
     apply_operations,
     is_protected_namespace,

@@ -51,6 +51,7 @@ def test_cli_set_mode_option_a_directory_as_arg(tmp_path):
             "--set",
             "my-custom-tag:colour=green;blue",
             "--commit",
+            "--target",
             str(tmp_path),
         ],
         capture_output=True,
@@ -80,6 +81,7 @@ def test_cli_set_mode_option_a_filename_as_arg(tmp_path):
             "--set",
             "my-custom-tag:colour=green;blue",
             "--commit",
+            "--target",
             str(tmp_path / "photo.jpg"),
         ],
         capture_output=True,
@@ -101,7 +103,7 @@ def test_cli_set_mode_option_a_no_set_arg(tmp_path):
     (tmp_path / "photo.jpg").write_text("fake image content")
 
     result = subprocess.run(
-        [_ls_sql_bin(), "--set", "--commit", str(tmp_path)],
+        [_ls_sql_bin(), "--set", "--commit", "--target", str(tmp_path)],
         capture_output=True,
     )
 
@@ -118,6 +120,7 @@ def test_cli_set_mode_option_a_implicit_dry_run(tmp_path):
             _ls_sql_bin(),
             "--set",
             "my-custom-tag:colour=blue;green",
+            "--target",
             str(tmp_path),
         ],
         capture_output=True,
@@ -139,6 +142,7 @@ def test_cli_set_mode_option_a_explicit_dry_run(tmp_path):
             "--set",
             "my-custom-tag:colour=blue;green",
             "--dry-run",  # explicit dry-run
+            "--target",
             str(tmp_path),
         ],
         capture_output=True,
@@ -160,6 +164,7 @@ def test_cli_set_mode_option_a_overwrite_operation(tmp_path):
             "--set",
             "my-custom-tag:colour=red",
             "--commit",
+            "--target",
             str(tmp_path),
         ],
         capture_output=True,
@@ -172,6 +177,7 @@ def test_cli_set_mode_option_a_overwrite_operation(tmp_path):
             "--set",
             "my-custom-tag:colour=green;blue",  # = overwrite operation
             "--commit",
+            "--target",
             str(tmp_path),
         ],
         capture_output=True,
@@ -194,6 +200,7 @@ def test_cli_set_mode_option_a_append_operation(tmp_path):
             "--set",
             "my-custom-tag:colour=red;green",
             "--commit",
+            "--target",
             str(tmp_path),
         ],
         capture_output=True,
@@ -206,6 +213,7 @@ def test_cli_set_mode_option_a_append_operation(tmp_path):
             "--set",
             "my-custom-tag:colour+=red;blue;blue;green",  # += append operation
             "--commit",
+            "--target",
             str(tmp_path),
         ],
         capture_output=True,
@@ -228,6 +236,7 @@ def test_cli_set_mode_option_a_remove_operation(tmp_path):
             "--set",
             "my-custom-tag:colour=red;green;blue",
             "--commit",
+            "--target",
             str(tmp_path),
         ],
         capture_output=True,
@@ -240,6 +249,7 @@ def test_cli_set_mode_option_a_remove_operation(tmp_path):
             "--set",
             "my-custom-tag:colour-=green",  # -= remove operation
             "--commit",
+            "--target",
             str(tmp_path),
         ],
         capture_output=True,
@@ -262,6 +272,7 @@ def test_cli_set_mode_option_a_delete_operation(tmp_path):
             "--set",
             "my-custom-tag:colour=green;blue",
             "--commit",
+            "--target",
             str(tmp_path),
         ],
         capture_output=True,
@@ -269,7 +280,14 @@ def test_cli_set_mode_option_a_delete_operation(tmp_path):
     )
 
     result = subprocess.run(
-        [_ls_sql_bin(), "--set", "my-custom-tag:colour==", "--commit", str(tmp_path)],
+        [
+            _ls_sql_bin(),
+            "--set",
+            "my-custom-tag:colour==",
+            "--commit",
+            "--target",
+            str(tmp_path),
+        ],
         capture_output=True,
         text=True,
     )
@@ -297,6 +315,7 @@ def test_cli_set_mode_option_b_directory_as_arg(tmp_path, freeze_date):
                 "--set",
                 "my-custom-tag:colour=green;blue",
                 "--commit",
+                "--target",
                 str(tmp_path),
             ],
         ),
@@ -327,6 +346,7 @@ def test_cli_set_mode_option_b_filename_as_arg(tmp_path, freeze_date):
                 "--set",
                 "my-custom-tag:colour=green;blue",
                 "--commit",
+                "--target",
                 str(tmp_path / "photo.jpg"),
             ],
         ),
@@ -364,7 +384,13 @@ def test_cli_set_mode_option_b_implicit_dry_run(tmp_path, freeze_date):
         patch("sys.stdout", new_callable=StringIO) as mock_out,
         patch(
             "sys.argv",
-            ["ls-sql", "--set", "my-custom-tag:colour=green;blue", str(tmp_path)],
+            [
+                "ls-sql",
+                "--set",
+                "my-custom-tag:colour=green;blue",
+                "--target",
+                str(tmp_path),
+            ],
         ),
         pytest.raises(SystemExit) as exc,
     ):
@@ -388,6 +414,7 @@ def test_cli_set_mode_option_b_explicit_dry_run(tmp_path, freeze_date):
                 "--set",
                 "my-custom-tag:colour=green;blue",
                 "--dry-run",
+                "--target",
                 str(tmp_path),
             ],
         ),
@@ -414,6 +441,7 @@ def test_cli_set_mode_option_b_overwrite(tmp_path, freeze_date):
                 "--set",
                 "my-custom-tag:colour=green;blue",  # = overwrite operation
                 "--commit",
+                "--target",
                 str(tmp_path),
             ],
         ),
@@ -441,6 +469,7 @@ def test_cli_set_mode_option_b_append(tmp_path, freeze_date):
                 "--set",
                 "my-custom-tag:colour=blue",
                 "--commit",
+                "--target",
                 str(tmp_path / "photo.jpg"),
             ],
         ),
@@ -458,6 +487,7 @@ def test_cli_set_mode_option_b_append(tmp_path, freeze_date):
                 "--set",
                 "my-custom-tag:colour+=red;blue;blue;green",  # += append operation
                 "--commit",
+                "--target",
                 str(tmp_path),
             ],
         ),
@@ -484,6 +514,7 @@ def test_cli_set_mode_option_b_remove(tmp_path, freeze_date):
                 "--set",
                 "my-custom-tag:colour=blue;green;red",
                 "--commit",
+                "--target",
                 str(tmp_path / "photo.jpg"),
             ],
         ),
@@ -501,6 +532,7 @@ def test_cli_set_mode_option_b_remove(tmp_path, freeze_date):
                 "--set",
                 "my-custom-tag:colour-=green",  # -= remove operation
                 "--commit",
+                "--target",
                 str(tmp_path),
             ],
         ),
@@ -527,6 +559,7 @@ def test_cli_set_mode_option_b_delete(tmp_path, freeze_date):
                 "--set",
                 "my-custom-tag:colour=blue;green;red",
                 "--commit",
+                "--target",
                 str(tmp_path / "photo.jpg"),
             ],
         ),
@@ -544,6 +577,7 @@ def test_cli_set_mode_option_b_delete(tmp_path, freeze_date):
                 "--set",
                 "my-custom-tag:colour==",  # == delete operation
                 "--commit",
+                "--target",
                 str(tmp_path),
             ],
         ),
@@ -567,7 +601,9 @@ def test_cli_set_mode_option_b_directory_containing_hidden_files(tmp_path, freez
     with (
         patch("sys.stdin.isatty", return_value=True),
         patch("sys.stdout", new_callable=StringIO) as mock_out,
-        patch("sys.argv", ["ls-sql", "--harvest", "--commit", str(tmp_path)]),
+        patch(
+            "sys.argv", ["ls-sql", "--harvest", "--commit", "--target", str(tmp_path)]
+        ),
         pytest.raises(SystemExit) as exc,
     ):
         main()
@@ -597,6 +633,7 @@ def test_cli_set_mode_option_b_directory_containing_hidden_files(tmp_path, freez
                 "--set",
                 "my-custom-tag:colour=red;blue;green",
                 "--commit",
+                "--target",
                 str(tmp_path),
             ],
         ),
@@ -616,7 +653,9 @@ def test_cli_set_mode_option_b_hidden_filename_with_extension(tmp_path, freeze_d
     with (
         patch("sys.stdin.isatty", return_value=True),
         patch("sys.stdout", new_callable=StringIO) as mock_out,
-        patch("sys.argv", ["ls-sql", "--harvest", "--commit", str(tmp_path)]),
+        patch(
+            "sys.argv", ["ls-sql", "--harvest", "--commit", "--target", str(tmp_path)]
+        ),
         pytest.raises(SystemExit) as exc,
     ):
         main()
@@ -638,6 +677,7 @@ def test_cli_set_mode_option_b_hidden_filename_with_extension(tmp_path, freeze_d
                 "--set",
                 "my-custom-tag:colour=red;blue;green",
                 "--commit",
+                "--target",
                 str(marked),
             ],
         ),
@@ -656,7 +696,9 @@ def test_cli_set_mode_option_b_hidden_filename_without_extension(tmp_path, freez
     with (
         patch("sys.stdin.isatty", return_value=True),
         patch("sys.stdout", new_callable=StringIO) as mock_out,
-        patch("sys.argv", ["ls-sql", "--harvest", "--commit", str(tmp_path)]),
+        patch(
+            "sys.argv", ["ls-sql", "--harvest", "--commit", "--target", str(tmp_path)]
+        ),
         pytest.raises(SystemExit) as exc,
     ):
         main()
@@ -679,6 +721,7 @@ def test_cli_set_mode_option_b_hidden_filename_without_extension(tmp_path, freez
                 "--set",
                 "my-custom-tag:colour=red;blue;green",
                 "--commit",
+                "--target",
                 str(marked),
             ],
         ),
@@ -700,7 +743,7 @@ def _harvest_file(tmp_path, filename, content="fake content", freeze=None):
     """
     (tmp_path / filename).write_text(content)
 
-    argv = ["ls-sql", "--harvest", "--commit", str(tmp_path)]
+    argv = ["ls-sql", "--harvest", "--commit", "--target", str(tmp_path)]
     ctx = [
         patch("sys.stdin.isatty", return_value=True),
         patch("sys.stdout", new_callable=StringIO),
@@ -746,7 +789,15 @@ def test_set_fh_dry_run_matches_file(tmp_path, freeze_date):
         patch("sys.stdout", new_callable=StringIO) as mock_out,
         patch(
             "sys.argv",
-            ["ls-sql", "--set", "ud:tag=hello", "--fh", fh[:8], str(tmp_path)],
+            [
+                "ls-sql",
+                "--set",
+                "ud:tag=hello",
+                "--fh",
+                fh[:8],
+                "--target",
+                str(tmp_path),
+            ],
         ),
         pytest.raises(SystemExit) as exc,
     ):
@@ -777,6 +828,7 @@ def test_set_fh_commit_renames_file(tmp_path, freeze_date):
                 "--fh",
                 fh[:8],
                 "--commit",
+                "--target",
                 str(tmp_path),
             ],
         ),
@@ -802,7 +854,15 @@ def test_set_fh_no_match_exits_one(tmp_path, freeze_date):
         patch("sys.stderr", new_callable=StringIO) as mock_err,
         patch(
             "sys.argv",
-            ["ls-sql", "--set", "ud:greeting=hello", "--fh", "00000000", str(tmp_path)],
+            [
+                "ls-sql",
+                "--set",
+                "ud:greeting=hello",
+                "--fh",
+                "00000000",
+                "--target",
+                str(tmp_path),
+            ],
         ),
         pytest.raises(SystemExit) as exc,
     ):
@@ -835,6 +895,7 @@ def test_set_fh_prefix_matches_correct_file(tmp_path, freeze_date):
                 "--fh",
                 fh_alpha[:8],
                 "--commit",
+                "--target",
                 str(tmp_path),
             ],
         ),

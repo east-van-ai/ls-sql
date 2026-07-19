@@ -1,8 +1,47 @@
+"""
 # ==============================================
-# ls-sql -- filesystem query engine
 # East Van AI -- AI for the rest of us!
 # https://github.com/east-van-ai
+# contact: east-van-ai@proton.me
 # ==============================================
+#
+# ~~~ ~~~ ~~~ ~~~ ~~~ ls-sql ~~~ ~~~ ~~~ ~~~ ~~~ ~~~
+#
+# lssql.cli - pipeable ls with SQL querying and metadata harvesting.
+#
+# Harvests file metadata (EXIF, ID3, image dimensions, ZIP contents)
+# into the filename itself using the Hatfile convention:
+# original^^^tag=value^tag=value^^^comment.ext
+# No database -- the filesystem is the source of truth and the
+# filename is the cache.
+#
+# Usage:
+#    ls-sql --target PATH                            query mode (default)
+#    ls-sql --query "SELECT * WHERE k='v'" --target PATH
+#    ls-sql --harvest [--commit] --target PATH       harvest metadata into names
+#    ls-sql --remove-all-tags [--commit] --target PATH
+#    ls-sql --verify --target PATH                   re-hash, compare ls:fh
+#    ls-sql --set "ud:key=value" [--commit] --target PATH
+#    ls <dir> | ls-sql                               piped passthrough parse
+#
+# --target PATH   required in every non-piped mode; --target . for cwd
+# -R              recursive        --verbose        show skipped files
+# --max N         harvest at most N files
+# --ext EXTS      harvest only these extensions (e.g. jpg,png)
+# --fh HASHES     select files by ls:fh hash prefix (with --set)
+#
+# Dry run by default: harvest/set/remove preview renames and change
+# nothing. --commit is the single escalation that actually renames.
+# --dry-run wins if both are passed.
+#
+# Exit codes:
+#    0   success
+#    1   ls-sql error; also --verify when changed content is found
+#    2   argument-parsing errors (unknown flag, missing value)
+#
+# License: MIT
+# ==============================================
+"""
 
 import argparse
 import os
@@ -21,6 +60,13 @@ from lssql.parser import build_file_path, parse_filename, should_skip, split_pat
 from lssql.query import run_query
 from lssql.setter import parse_set_string, set_file, set_tags_directory
 from lssql.scanner import scan_directory
+
+USAGE = (
+    "Usage: ls-sql --target PATH"
+    " [--query Q | --harvest | --remove-all-tags | --verify | --set TAGS]"
+    " [options]\n"
+    "       ls <dir> | ls-sql"
+)
 
 
 def run_harvest_mode(
@@ -155,7 +201,7 @@ def run_set_mode(
             if r.get("tags", {}).get("ls:fh", "")[: len(next(iter(hashes)))] in hashes
         ]
         if not targets:
-            print("error: no files matched --fh hashes\n", file=sys.stderr)
+            print("ls-sql: no files matched --fh hashes", file=sys.stderr)
             return 1
 
         results = [set_file(r["path"], r["filename"], ops, commit) for r in targets]
@@ -228,7 +274,7 @@ def run_query_mode(
     if query:
         matched, error = run_query(query, rows)
         if error:
-            print(error + "\n", file=sys.stderr)
+            print(f"ls-sql: {error}", file=sys.stderr)
             return 1
         matched.sort(key=lambda d: d["filename"].lower())
         for row in matched:
@@ -248,10 +294,11 @@ def main():
         description="pipeable ls with SQL querying and metadata harvesting",
     )
     parser.add_argument(
-        "target",
-        nargs="?",
+        "--target",
+        type=str,
         default="",
-        help="(required) target directory or filename: . for the current directory",
+        metavar="PATH",
+        help="(required) target directory or filename: use --target . for the current directory",
     )
     parser.add_argument(
         "--query",
@@ -317,20 +364,24 @@ def main():
             print(build_file_path(parsed))
         sys.exit(0)
 
+    # bare invocation on a TTY: print the banner, touch nothing
+    if len(sys.argv) == 1:
+        print(__doc__)
+        sys.exit(0)
+
     args = parser.parse_args()
 
-    # 'target' is a positional argument
     if not args.target:
         print(
-            "error: 'target' is required. use '.' for the current directory.\n",
+            "ls-sql: --target is required; use '--target .' for the current directory.",
             file=sys.stderr,
         )
-        parser.print_help(sys.stderr)
+        print(USAGE, file=sys.stderr)
         sys.exit(1)
 
     if not (os.path.isdir(args.target) or os.path.isfile(args.target)):
-        print(f"error: directory or file not found: {args.target}\n", file=sys.stderr)
-        parser.print_help(sys.stderr)
+        print(f"ls-sql: directory or file not found: {args.target}", file=sys.stderr)
+        print(USAGE, file=sys.stderr)
         sys.exit(1)
 
     # standalone remove all tags mode
@@ -359,8 +410,8 @@ def main():
     if args.set:
         ops, error = parse_set_string(args.set)
         if error:
-            print(error + "\n", file=sys.stderr)
-            parser.print_help(sys.stderr)
+            print(f"ls-sql: {error}", file=sys.stderr)
+            print(USAGE, file=sys.stderr)
             sys.exit(1)
 
         commit = args.commit and not args.dry_run
@@ -373,7 +424,7 @@ def main():
             fh=args.fh,
         )
         if exit_code:
-            parser.print_help(sys.stderr)
+            print(USAGE, file=sys.stderr)
         sys.exit(exit_code)
 
     # standalone harvest mode
@@ -399,7 +450,7 @@ def main():
         recursive=args.recursive,
     )
     if exit_code:
-        parser.print_help(sys.stderr)
+        print(USAGE, file=sys.stderr)
     sys.exit(exit_code)
 
 

@@ -44,7 +44,7 @@ def test_cli_harvest_mode_option_a_directory_as_arg(tmp_path):
     (tmp_path / "photo.jpg").write_text("fake image content")
 
     result = subprocess.run(
-        [_ls_sql_bin(), "--harvest", "--commit", str(tmp_path)],
+        [_ls_sql_bin(), "--harvest", "--commit", "--target", str(tmp_path)],
         capture_output=True,
         text=True,
     )
@@ -62,7 +62,13 @@ def test_cli_harvest_mode_option_a_filename_as_arg(tmp_path):
     (tmp_path / "photo.jpg").write_text("fake image content")
 
     result = subprocess.run(
-        [_ls_sql_bin(), "--harvest", "--commit", str(tmp_path / "photo.jpg")],
+        [
+            _ls_sql_bin(),
+            "--harvest",
+            "--commit",
+            "--target",
+            str(tmp_path / "photo.jpg"),
+        ],
         capture_output=True,
         text=True,
     )
@@ -84,7 +90,9 @@ def test_cli_harvest_mode_option_b_directory_as_arg(tmp_path, freeze_date):
     with (
         patch("sys.stdin.isatty", return_value=True),
         patch("sys.stdout", new_callable=StringIO),
-        patch("sys.argv", ["ls-sql", "--harvest", "--commit", str(tmp_path)]),
+        patch(
+            "sys.argv", ["ls-sql", "--harvest", "--commit", "--target", str(tmp_path)]
+        ),
         pytest.raises(SystemExit) as exc,
     ):
         main()
@@ -104,7 +112,14 @@ def test_cli_harvest_mode_option_b_filename_as_arg(tmp_path, freeze_date):
         patch("sys.stdin.isatty", return_value=True),
         patch("sys.stdout", new_callable=StringIO),
         patch(
-            "sys.argv", ["ls-sql", "--harvest", "--commit", str(tmp_path / "photo.jpg")]
+            "sys.argv",
+            [
+                "ls-sql",
+                "--harvest",
+                "--commit",
+                "--target",
+                str(tmp_path / "photo.jpg"),
+            ],
         ),
         pytest.raises(SystemExit) as exc,
     ):
@@ -131,7 +146,9 @@ def test_cli_harvest_mode_option_b_directory_containing_hidden_files(
     with (
         patch("sys.stdin.isatty", return_value=True),
         patch("sys.stdout", new_callable=StringIO) as mock_out,
-        patch("sys.argv", ["ls-sql", "--harvest", "--commit", str(tmp_path)]),
+        patch(
+            "sys.argv", ["ls-sql", "--harvest", "--commit", "--target", str(tmp_path)]
+        ),
         pytest.raises(SystemExit) as exc,
     ):
         main()
@@ -156,7 +173,13 @@ def test_cli_harvest_mode_option_b_hidden_filename(tmp_path, freeze_date):
         patch("sys.stdout", new_callable=StringIO) as mock_out,
         patch(
             "sys.argv",
-            ["ls-sql", "--harvest", "--commit", str(tmp_path / ".photo.jpg")],
+            [
+                "ls-sql",
+                "--harvest",
+                "--commit",
+                "--target",
+                str(tmp_path / ".photo.jpg"),
+            ],
         ),
         pytest.raises(SystemExit) as exc,
     ):

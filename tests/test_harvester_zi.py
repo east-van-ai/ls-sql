@@ -10,7 +10,6 @@ uses zipfile stdlib to create real ZIP files in tmp_path.
 """
 
 import zipfile
-import pytest
 from lssql.harvester_zi import build_zi_tag_string, _extract_zip_tags
 
 

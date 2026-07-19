@@ -130,8 +130,8 @@ def test_harvest_directory_commit(tmp_path, freeze_date):
     results = harvest_directory(str(tmp_path), commit=True)
 
     assert all(r["status"] == "renamed" for r in results)
-    assert (tmp_path / f"a^^^ls:hd=20260503^ls:fh=03754271b00a0e1c^^^.jpg").exists()
-    assert (tmp_path / f"b^^^ls:hd=20260503^ls:fh=03754271b00a0e1c^^^.png").exists()
+    assert (tmp_path / "a^^^ls:hd=20260503^ls:fh=03754271b00a0e1c^^^.jpg").exists()
+    assert (tmp_path / "b^^^ls:hd=20260503^ls:fh=03754271b00a0e1c^^^.png").exists()
 
 
 def test_harvest_directory_skips_hidden(tmp_path, freeze_date):
