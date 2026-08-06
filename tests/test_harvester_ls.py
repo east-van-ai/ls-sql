@@ -12,7 +12,7 @@ tests for lssql.harvester with pytest.
 
 from PIL import Image
 
-import lssql.harvester as harvester
+from lssql import harvester
 from lssql.harvester import content_hash
 from lssql.harvester_ls import extract_dimension
 

@@ -55,7 +55,7 @@ def test_build_harvested_filename_fh_is_16_chars(tmp_path, freeze_date):
     f.write_text("fake image content")
     result = build_harvested_filename("photo.jpg", str(tmp_path))
     # extract fh value
-    fh_part = [p for p in result.split("^") if p.startswith("ls:fh=")][0]
+    fh_part = next(p for p in result.split("^") if p.startswith("ls:fh="))
     fh_value = fh_part.split("=")[1].split("^")[0].split("^")[0]
     # strip extension if it crept in
     fh_value = fh_value.split(".")[0]

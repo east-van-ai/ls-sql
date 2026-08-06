@@ -4,27 +4,27 @@
 
 ## Table of Contents
 
-- L1: [ls-sql](#ls-sql)
-  - L5: [Table of Contents](#table-of-contents)
-  - L29: [Why](#why)
-  - L39: [Design principles](#design-principles)
-  - L49: [Example output](#example-output)
-  - L60: [Install](#install)
-  - L71: [Usage](#usage)
-    - L76: [Quick start](#quick-start)
-    - L105: [Setting tags manually](#setting-tags-manually)
-    - L135: [Pipe mode](#pipe-mode)
-  - L150: [Filename convention](#filename-convention)
-  - L166: [Tag namespaces](#tag-namespaces)
-    - L178: [Tag reference](#tag-reference)
-  - L200: [Albums](#albums)
-  - L216: [Supported file types](#supported-file-types)
-  - L229: [Duplicate detection](#duplicate-detection)
-  - L240: [Performance](#performance)
-  - L258: [When to stop using ls-sql](#when-to-stop-using-ls-sql)
-  - L264: [Target users](#target-users)
-  - L271: [Notes](#notes)
-  - L280: [Use of AI](#use-of-ai)
+- [ls-sql](#ls-sql)
+  - [Table of Contents](#table-of-contents)
+  - [Why](#why)
+  - [Design principles](#design-principles)
+  - [Example output](#example-output)
+  - [Install](#install)
+  - [Usage](#usage)
+    - [Quick start](#quick-start)
+    - [Setting tags manually](#setting-tags-manually)
+    - [Pipe mode](#pipe-mode)
+  - [Filename convention](#filename-convention)
+  - [Tag namespaces](#tag-namespaces)
+    - [Tag reference](#tag-reference)
+  - [Albums](#albums)
+  - [Supported file types](#supported-file-types)
+  - [Duplicate detection](#duplicate-detection)
+  - [Performance](#performance)
+  - [When to stop using ls-sql](#when-to-stop-using-ls-sql)
+  - [Target users](#target-users)
+  - [Notes](#notes)
+  - [Use of AI](#use-of-ai)
 
 ## Why
 
@@ -43,7 +43,7 @@ Every file management tool stores metadata in a database separate from the files
 - Safe by default -- dry-run unless `--commit` is explicit.
 - Unix citizen -- pipeable, composable, stays out of the way.
 - File hash -- stable content fingerprint that survives renames.
-- Fully reversible -- `--remove-all-tags` restores original filenames exactly.
+- Fully reversible -- `ls-sql reset` restores original filenames exactly.
 - Target platform is macOS. 255 character filename limit applies.
 
 ## Example output
@@ -70,82 +70,109 @@ For development, clone the repo and `pip install -e .` in a venv.
 
 ## Usage
 
-Run bare `ls-sql` to print the built-in help. All modes name their target
-with `--target` -- there is no positional argument.
+A command, then a path, then options.
+
+```text
+ls-sql <command> PATH [options]
+```
+
+There are five commands: `list`, `harvest`, `set`, `verify`, and `reset`. The
+command goes right after `ls-sql` and the path right after the command. Run
+bare `ls-sql` for the built-in help, or a bare command word (`ls-sql harvest`)
+for that command's help.
 
 ### Quick start
 
 ```bash
-# Harvest metadata into filenames (preview first)
-ls-sql --harvest --dry-run --target ~/SD/outputs
+# Harvest metadata into filenames (preview first -- dry run is the default)
+ls-sql harvest ~/SD/outputs
 
 # Commit the harvest
-ls-sql --harvest --commit --target ~/SD/outputs
+ls-sql harvest ~/SD/outputs --commit
 
-# Query the filesystem
-ls-sql --target ~/SD/outputs
+# List the filesystem
+ls-sql list ~/SD/outputs
 
 # SQL query
-ls-sql --query "SELECT * WHERE ex:cam='fujifilm-x-t5'" --target ~/photos
+ls-sql list ~/photos --query "SELECT * WHERE ex:cam='fujifilm-x-t5'"
 
 # Tag presence
-ls-sql --query "SELECT * WHERE ex:cam IS NOT NULL" --target ~/photos
+ls-sql list ~/photos --query "SELECT * WHERE ex:cam IS NOT NULL"
 
 # Substring match on ZIP contents
-ls-sql --query "SELECT * WHERE zi:ext CONTAINS 'jpeg'" --target ~/zips
+ls-sql list ~/zips --query "SELECT * WHERE zi:ext CONTAINS 'jpeg'"
 
 # Recursive
-ls-sql -R --target ~/SD/outputs
+ls-sql list ~/SD/outputs -R
+
+# Check that content still matches the hash in the filename
+ls-sql verify ~/SD/outputs
 
 # Remove all ls-sql tags, restore original filenames
-ls-sql --remove-all-tags --dry-run --target ~/photos
-ls-sql --remove-all-tags --commit --target ~/photos
+ls-sql reset ~/photos
+ls-sql reset ~/photos --commit
 ```
 
 ### Setting tags manually
 
-`--set` writes user-defined tags directly into filenames. If a file has not been harvested yet, `--set` harvests it first, then applies the tag.
+`set` writes user-defined tags directly into filenames. The tags ride `--tags`.
+If a file has not been harvested yet, `set` harvests it first, then applies the
+tag.
 
 ```bash
 # Set a tag on a single file (dry-run by default)
-ls-sql --set "ud:album=london-2006" --target photo.jpg
+ls-sql set photo.jpg --tags "ud:album=london-2006"
 
 # Commit
-ls-sql --set "ud:album=london-2006" --commit --target photo.jpg
+ls-sql set photo.jpg --tags "ud:album=london-2006" --commit
 
 # Set multiple tags (caret-separated)
-ls-sql --set "ud:album=london-2006^ud:where=thames" --commit --target photo.jpg
+ls-sql set photo.jpg --tags "ud:album=london-2006^ud:where=thames" --commit
 
 # Append to an existing value
-ls-sql --set "ud:weather+=rainy" --commit --target photo.jpg
+ls-sql set photo.jpg --tags "ud:weather+=rainy" --commit
 
 # Remove a specific value
-ls-sql --set "ud:weather-=rainy" --commit --target photo.jpg
+ls-sql set photo.jpg --tags "ud:weather-=rainy" --commit
 
 # Remove a tag entirely
-ls-sql --set "ud:weather==" --commit --target photo.jpg
+ls-sql set photo.jpg --tags "ud:weather==" --commit
 
 # Apply to a whole directory
-ls-sql --set "ud:trip=london-2006" --commit --target ~/photos/london
+ls-sql set ~/photos/london --tags "ud:trip=london-2006" --commit
 
 # Select by content hash -- hash does not change when filename changes
-ls-sql --fh="ab2c3d;9fs7g1" --set "ud:album=london-2006" --commit --target ~/photos
+ls-sql set ~/photos --tags "ud:album=london-2006" --fh "ab2c3d;9fs7g1" --commit
 ```
 
 ### Pipe mode
 
-`ls-sql` reads from stdin automatically when piped. Output is full path per line, composable with standard Unix tools.
+`list` prints one full path per line with no summary, so it composes with
+standard Unix tools.
 
 ```bash
 # Count matches
-ls-sql --query "SELECT * WHERE sd:mn='flux'" --target . | wc -l
+ls-sql list . --query "SELECT * WHERE sd:mn='flux'" | wc -l
 
 # Open results
-ls-sql --target . | awk '{print $1}' | xargs open
+ls-sql list . | awk '{print $1}' | xargs open
 
 # Grep output directly
-ls-sql -R --target . | grep "euler-a"
+ls-sql list . -R | grep "euler-a"
 ```
+
+A bare `ls-sql` reads paths from stdin, parses the Hatfile names, and prints
+them back. That is the passthrough mode, and it is the only case where stdin
+is read.
+
+```bash
+ls ~/photos | ls-sql
+```
+
+With a command word present, stdin is left alone. `ls . | ls-sql harvest .`
+ignores the pipe rather than erroring, because an inherited pipe (from a shell
+pipeline, a Makefile, or any subprocess) is indistinguishable from a
+deliberate one.
 
 ## Filename convention
 
@@ -210,7 +237,7 @@ IMG_4522^^^ls:hd=20260503^ls:fh=03754271b00a0e1c^ex:dto=2006:04:15^ud:2006-londo
 Query an album:
 
 ```bash
-ls-sql --query "SELECT * WHERE ud:2006-london IS NOT NULL" --target ~/photos
+ls-sql list ~/photos --query "SELECT * WHERE ud:2006-london IS NOT NULL"
 ```
 
 ## Supported file types
@@ -231,7 +258,7 @@ CBZ    Comic Book ZIP, same as ZIP
 `ls:fh` is the stable content fingerprint. Use it to find duplicates:
 
 ```bash
-ls-sql --query "SELECT * WHERE ls:fh IS NOT NULL" -R --target . \
+ls-sql list . -R --query "SELECT * WHERE ls:fh IS NOT NULL" \
   | awk -F'[\\^]' '{for(i=1;i<=NF;i++) if($i~/^ls:fh=/) print substr($i,6), $0}' \
   | sort \
   | awk 'prev==$1 {print} {prev=$1}'
@@ -271,10 +298,12 @@ External USB SSD:   ~50,000 files per second
 ## Notes
 
 - Errors print as `ls-sql: <message>` with a compact usage line; exit codes
-  are 0 (success), 1 (ls-sql errors, and `--verify` when content changed),
-  2 (argument-parsing errors).
-- [DESIGN.md](DESIGN.md) is the full internal spec -- CLI grammar, edge
-  cases, V1/V2 scope. [HATFILE.md](HATFILE.md) documents the filename
+  are 0 (success), 1 (ls-sql errors, and `verify` when content changed),
+  2 (argument-parsing errors, including an unknown command).
+- Options are scoped to their command. `--commit` on `list` is an error, not
+  something quietly ignored.
+- [DESIGN.md](DESIGN.md) is the full internal spec -- CLI grammar, output
+  style, edge cases. [HATFILE.md](HATFILE.md) documents the filename
   convention standalone.
 
 ## Use of AI

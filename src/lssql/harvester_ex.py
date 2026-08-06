@@ -9,7 +9,8 @@ EXIF metadata extraction for JPG files
 """
 
 import piexif
-from lssql.harvester_util import sanitize_tag_value
+
+from lssql.harvester_util import sanitize_tag_value, tags_to_string
 
 
 def _safe(d, ifd, tag):
@@ -33,7 +34,7 @@ def extract_jpg_tags(filepath: str) -> dict:
     """
     try:
         exif = piexif.load(filepath)
-    except Exception:
+    except Exception:  # noqa: BLE001 -- unreadable EXIF is not an error
         return {}
 
     tags = {}
@@ -44,7 +45,7 @@ def extract_jpg_tags(filepath: str) -> dict:
         try:
             date_str = dto.decode("utf-8")  # '2024:07:12 14:30:00'
             tags["ex:dto"] = sanitize_tag_value(date_str[:10])  # '2024:07:12'
-        except Exception:
+        except Exception:  # noqa: BLE001, S110 -- a bad field yields no tag
             pass
 
     # ex:cam -- camera model
@@ -54,7 +55,7 @@ def extract_jpg_tags(filepath: str) -> dict:
             cam_str = cam.decode("utf-8").strip().lower()
             cam_str = cam_str.replace(" ", "-").replace("_", "-")
             tags["ex:cam"] = sanitize_tag_value(cam_str)
-        except Exception:
+        except Exception:  # noqa: BLE001, S110 -- a bad field yields no tag
             pass
 
     # ex:iso -- ISO speed
@@ -71,7 +72,7 @@ def extract_jpg_tags(filepath: str) -> dict:
             # format cleanly: f2.8 not f2.800000
             formatted = f"{value:.1f}".rstrip("0").rstrip(".")
             tags["ex:ap"] = f"f{formatted}"
-        except Exception:
+        except Exception:  # noqa: BLE001, S110 -- a bad field yields no tag
             pass
 
     # ex:fl -- focal length (rational)
@@ -82,7 +83,7 @@ def extract_jpg_tags(filepath: str) -> dict:
             value = numerator / denominator
             formatted = f"{value:.1f}".rstrip("0").rstrip(".")
             tags["ex:fl"] = f"{formatted}mm"
-        except Exception:
+        except Exception:  # noqa: BLE001, S110 -- a bad field yields no tag
             pass
 
     return tags
@@ -100,4 +101,4 @@ def build_ex_tag_string(filepath: str, ext: str) -> str:
     if not tags:
         return ""
 
-    return "^".join(f"{k}={v}" for k, v in tags.items())
+    return tags_to_string(tags)

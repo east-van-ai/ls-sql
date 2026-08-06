@@ -2,68 +2,70 @@
 
 ## Table of Contents
 
-- L1: [ls-sql design & specification](#ls-sql-design--specification)
-  - L3: [Table of Contents](#table-of-contents)
-  - L70: [Hatfile](#hatfile)
-  - L89: [ls-sql Architecture](#ls-sql-architecture)
-  - L106: [Filename specification](#filename-specification)
-    - L108: [Hatfile metadata and boundary](#hatfile-metadata-and-boundary)
-    - L123: [Tagged key-value format](#tagged-key-value-format)
-    - L132: [Character budget](#character-budget)
-  - L144: [Tag namespaces](#tag-namespaces)
-    - L157: [Namespace rules](#namespace-rules)
-    - L167: [Tag reference](#tag-reference)
-    - L206: [Note on name hash](#note-on-name-hash)
-  - L214: [Album system](#album-system)
-    - L221: [Multi select list](#multi-select-list)
-  - L227: [Configuration](#configuration)
-  - L238: [CLI reference](#cli-reference)
-    - L240: [CLI grammar](#cli-grammar)
-    - L269: [Query mode](#query-mode)
-    - L279: [Harvest mode](#harvest-mode)
-    - L289: [Reversal mode](#reversal-mode)
-    - L297: [Set mode](#set-mode)
-      - L324: [Operators](#operators)
-      - L337: [Operator rules](#operator-rules)
-      - L349: [Harvest-first](#harvest-first)
-      - L354: [`--fh` flag](#--fh-flag)
-    - L365: [Flag rules](#flag-rules)
-  - L383: [Output style](#output-style)
-  - L402: [Implementation](#implementation)
-    - L404: [Language](#language)
-    - L409: [Key dependencies](#key-dependencies)
-    - L421: [Performance targets](#performance-targets)
-    - L427: [Packaging](#packaging)
-  - L441: [V1 vs V2](#v1-vs-v2)
-    - L443: [V1 -- ship it](#v1----ship-it)
-    - L451: [V2 -- full fidelity](#v2----full-fidelity)
-  - L459: [Edge cases](#edge-cases)
-  - L470: [When to stop using ls-sql](#when-to-stop-using-ls-sql)
-  - L480: [Out of scope](#out-of-scope)
-  - L490: [Granular Details](#granular-details)
-    - L492: [`--query` mode](#--query-mode)
-    - L511: [`--harvest` mode](#--harvest-mode)
-    - L530: [`--remove-all-tags` mode](#--remove-all-tags-mode)
-    - L545: [`--verify` mode](#--verify-mode)
-    - L561: [EXIF files (`ex:`)](#exif-files-ex)
-    - L579: [Audio files (`au:`)](#audio-files-au)
-    - L594: [ZIP files (`zi:`)](#zip-files-zi)
-      - L621: [Example](#example)
-      - L627: [Query examples](#query-examples)
-    - L637: [Stable Diffusion (`sd:`) -- v1.x](#stable-diffusion-sd----v1x)
-    - L655: [User Defined (`ud:`)](#user-defined-ud)
-      - L661: [Album system and `ud:` tags](#album-system-and-ud-tags)
-        - L666: [How it works](#how-it-works)
-        - L680: [Album example](#album-example)
-        - L696: [Album rules](#album-rules)
-      - L705: [Repurpose Album tags for multi select list](#repurpose-album-tags-for-multi-select-list)
-    - L728: [Duplicate detection](#duplicate-detection)
-    - L746: [`--set` mode](#--set-mode)
-      - L751: [Tag manipulation logic](#tag-manipulation-logic)
-      - L783: [Multi-value separator](#multi-value-separator)
-      - L795: [Protected namespaces](#protected-namespaces)
-      - L808: [Pipe pattern](#pipe-pattern)
-      - L829: [Implementation note](#implementation-note)
+- [ls-sql design & specification](#ls-sql-design--specification)
+  - [Table of Contents](#table-of-contents)
+  - [Hatfile](#hatfile)
+  - [ls-sql Architecture](#ls-sql-architecture)
+  - [Filename specification](#filename-specification)
+    - [Hatfile metadata and boundary](#hatfile-metadata-and-boundary)
+    - [Tagged key-value format](#tagged-key-value-format)
+    - [Character budget](#character-budget)
+  - [Tag namespaces](#tag-namespaces)
+    - [Namespace rules](#namespace-rules)
+    - [Tag reference](#tag-reference)
+    - [Note on name hash](#note-on-name-hash)
+  - [Album system](#album-system)
+    - [Multi select list](#multi-select-list)
+  - [Configuration](#configuration)
+  - [CLI reference](#cli-reference)
+    - [CLI grammar](#cli-grammar)
+    - [Positions are decided, not inferred](#positions-are-decided-not-inferred)
+    - [Piped is a file type, not the absence of a terminal](#piped-is-a-file-type-not-the-absence-of-a-terminal)
+    - [A pipe cannot be an error here](#a-pipe-cannot-be-an-error-here)
+    - [List mode](#list-mode)
+    - [Harvest mode](#harvest-mode)
+    - [Reset mode](#reset-mode)
+    - [Set mode](#set-mode)
+      - [Operators](#operators)
+      - [Operator rules](#operator-rules)
+      - [Harvest-first](#harvest-first)
+      - [`--fh` flag](#--fh-flag)
+    - [Flag rules](#flag-rules)
+  - [Output style](#output-style)
+    - [Rename previews](#rename-previews)
+  - [Implementation](#implementation)
+    - [Language](#language)
+    - [Key dependencies](#key-dependencies)
+    - [Performance targets](#performance-targets)
+    - [Packaging](#packaging)
+  - [What ls-sql does](#what-ls-sql-does)
+  - [Edge cases](#edge-cases)
+  - [When to stop using ls-sql](#when-to-stop-using-ls-sql)
+  - [Out of scope](#out-of-scope)
+  - [Granular Details](#granular-details)
+    - [`list` mode](#list-mode-1)
+    - [`harvest` mode](#harvest-mode-1)
+    - [`reset` mode](#reset-mode-1)
+    - [`verify` mode](#verify-mode)
+    - [EXIF files (`ex:`)](#exif-files-ex)
+    - [Audio files (`au:`)](#audio-files-au)
+    - [ZIP files (`zi:`)](#zip-files-zi)
+      - [Example](#example)
+      - [Query examples](#query-examples)
+    - [Stable Diffusion (`sd:`)](#stable-diffusion-sd)
+    - [User Defined (`ud:`)](#user-defined-ud)
+      - [Album system and `ud:` tags](#album-system-and-ud-tags)
+        - [How it works](#how-it-works)
+        - [Album example](#album-example)
+        - [Album rules](#album-rules)
+      - [Repurpose Album tags for multi select list](#repurpose-album-tags-for-multi-select-list)
+    - [Duplicate detection](#duplicate-detection)
+    - [`set` mode](#set-mode-1)
+      - [Tag manipulation logic](#tag-manipulation-logic)
+      - [Multi-value separator](#multi-value-separator)
+      - [Protected namespaces](#protected-namespaces)
+      - [Piping into `set`](#piping-into-set)
+      - [Implementation note](#implementation-note)
 
 ---
 
@@ -88,14 +90,19 @@ See [HATFILE.md](HATFILE.md)
 
 ## ls-sql Architecture
 
-Two modes, one tool.
+Five commands, two halves.
 
 ```bash
-ls-sql --harvest --target .  # harvest mode -- reads files, renames filenames
-ls-sql --target .            # query mode   -- reads filesystem directly, outputs ls-style
+ls-sql harvest .  # reads files, renames them
+ls-sql set .      # renames
+ls-sql reset .    # renames
+ls-sql list .     # reads filenames, never touches a file
+ls-sql verify .   # reads and re-hashes, never touches a file
 ```
 
-Harvester touches files. Querier never does. That distinction is absolute.
+Three commands rename, two never do. That distinction is absolute, and it is
+the reason dry-run is the default on the first three and meaningless on the
+other two.
 
 The filesystem is the only source of truth. There is no database to maintain,
 no cache to invalidate, no records to go stale. Everything ls-sql knows lives
@@ -149,7 +156,7 @@ Namespaces keep tags organised and prevent collisions between sources.
 au:    audio metadata (MP3, AAC, FLAC, whatever comes next)
 ex:    EXIF data
 ls:    ls-sql native tags
-sd:    Stable Diffusion / A1111 (planned -- v1.x)
+sd:    Stable Diffusion / A1111 (reserved, not harvested)
 ud:    user defined custom tags
 zi:    zipfile info (.zip files)
 ```
@@ -191,14 +198,14 @@ zi:cnt   total entry count
 zi:ext   content types
 zi:dot   dot entry count
 
-sd:mn    Model name         -- v1.x
-sd:mh    Model hash         -- v1.x
-sd:sa    Sampler            -- v1.x
-sd:sp    Sampling steps     -- v1.x
-sd:sh    Schedule type      -- v1.x
-sd:cfg   CFG scale          -- v1.x
-sd:sd    Seed               -- v1.x
-sd:la    LoRA               -- v1.x
+sd:mn    Model name
+sd:mh    Model hash
+sd:sa    Sampler
+sd:sp    Sampling steps
+sd:sh    Schedule type
+sd:cfg   CFG scale
+sd:sd    Seed
+sd:la    LoRA
 
 ud:*     Anything that does not overlap with ls-sql native tags
 ```
@@ -226,8 +233,8 @@ structure. No database.
 
 ## Configuration
 
-Configuration is deferred to v1.x. ls-sql v1 uses sensible hardcoded defaults
-and requires no configuration file to operate.
+There is no configuration file. ls-sql runs on hardcoded defaults, and every
+knob it has is a command-line flag.
 
 - Harvest boundary: `^^^` -- the Hatfile standard, not configurable
 - Max filename length: 200 characters
@@ -239,86 +246,207 @@ and requires no configuration file to operate.
 
 ### CLI grammar
 
-Aligned with the mdmap house CLI style in July 2026 (branch
-`refactor/mdmap-face-lift`); mdmap is the reference implementation of the
-grammar. ls-sql keeps one deliberate divergence: piped mode.
+A command word, then a path, then options. vex is the reference implementation
+of this grammar; ls-sql keeps one deliberate divergence, piped mode.
 
-- **All flags, no positionals.** Every mode names the directory or file it
-  acts on with `--target PATH`; the positional form was dropped in July 2026.
-- **Bare `ls-sql` on a TTY prints help.** The module docstring banner goes to
-  stdout, exit 0. Discovering the tool costs nothing and touches nothing.
-- **Piped mode is the exception, and it is the product.** When stdin is not a
-  TTY, ls-sql enters passthrough parse mode before argparse runs: read paths
-  from stdin, parse the Hatfile names, print full paths, exit 0. Flags are
-  ignored in piped mode. Unlike the other house CLIs, piped input with no
-  flags is not a usage error -- it is the primary Unix-citizen mode.
+```text
+ls-sql <command> PATH [options]
+```
+
+- **The command is a bare word, and it comes first.** `list`, `harvest`, `set`,
+  `verify`, `reset`. It must sit in `sys.argv[1]`, immediately after `ls-sql`,
+  not after some flag that happens to parse. There is no default command:
+  `ls-sql .` is a usage error, not a listing.
+- **The path is a bare word, and it comes second.** Every command acts on one
+  directory or file, named in `sys.argv[2]`. `.` for the current directory.
+  argparse cannot be trusted with this slot on its own, so the position is
+  enforced on a single token. See "Positions are decided, not inferred" below.
+- **Options are scoped to their command.** `--ext` and `--max` belong to
+  harvest, `--fh` and `--tags` to set, `--query` to list. Passing one to a
+  command that has no use for it is an error, not something quietly ignored.
+  `--commit`, `--dry-run`, `-R`, and `--verbose` are shared.
+- **Bare `ls-sql` prints the banner.** Module docstring to stdout, exit 0.
+  Discovering the tool costs nothing and touches nothing.
+- **A bare command word is a help request.** `ls-sql harvest`, with nothing
+  else on the line at all, prints that command's help and exits 0. Once any
+  other argument is present the user has asked for something specific, and
+  answering a wrong request with help text would hide the mistake.
+- **Neither help path looks at `isatty()`.** What was typed decides the
+  answer, not how the process was launched. Gating help on a terminal made
+  `ls-sql harvest` exit 0 from a shell and 1 under `nohup`, cron, or an editor,
+  on identical input. The cost is accepted: a scheduled command that loses its
+  path argument prints help and exits 0 rather than failing loudly.
+- **Piped mode is the exception, and it is the product.** A bare `ls-sql` with
+  content on stdin enters passthrough parse mode before argparse runs: read
+  paths from stdin, parse the Hatfile names, print full paths, exit 0. Unlike
+  the other house CLIs, piped input with no command is not a usage error, it is
+  the primary Unix-citizen mode. "Carries content" is a file-type test, not
+  `isatty()`. See below.
+- **With a command word present, stdin is not an input source.** It is not read
+  and it is not an error. See "A pipe cannot be an error here" below.
 - **Error style.** Every self-generated error is `ls-sql: <message>` followed
   by the compact USAGE lines, both to stderr, exit 1. Errors never dump the
   full `--help` text.
 
   ```text
-  Usage: ls-sql --target PATH [--query Q | --harvest | --remove-all-tags | --verify | --set TAGS] [options]
+  Usage: ls-sql list|harvest|set|verify|reset PATH [options]
          ls <dir> | ls-sql
   ```
 
-- **Exit codes.** `0` success; `1` every ls-sql-generated error, and `--verify`
+- **Exit codes.** `0` success; `1` every ls-sql-generated error, and `verify`
   when changed content is found (a semantic result, not an error -- the
   message carries no `ls-sql:` prefix); `2` is reserved for argparse's own
-  errors (unknown flag, missing value).
+  errors (unknown command, unknown flag, missing value).
 
-### Query mode
+### Positions are decided, not inferred
+
+Both bare words are pinned to a fixed slot, checked directly against `sys.argv`
+rather than left to argparse.
+
+Since Python 3.12, argparse back-fills a trailing optional positional from a
+token appearing after any number of flags. `ls-sql harvest --commit .` parses
+happily with the path set, even though the documented grammar puts the path
+immediately after the command. Accepting it would let the real grammar drift
+away from the written one, one convenience at a time.
+
+So the path is read from `sys.argv[2]` and nowhere else. A token argparse found
+somewhere else on the line is discarded. ls-sql does not go hunting for a path,
+and does not guess whether a stray word looks like one.
+
+The command word gets the same treatment for the same reason. argparse resolves
+which token is the positional correctly, whatever the interleaving, so a flag
+came first exactly when that token is not `sys.argv[1]`.
+
+### Piped is a file type, not the absence of a terminal
+
+`isatty()` answers "is a human sitting at a terminal". That is not the same
+question as "did the user pipe something in", and piped mode depends on the
+second one.
+
+The gap between them is `/dev/null`. That is what cron, systemd, `nohup`, CI
+runners, and any subprocess with unattached stdin hand a process. Treating
+every non-terminal stdin as piped content catches all of those, so a scheduled
+harvest reads zero lines, renames nothing, and exits 0. Silent success is the
+worst possible failure for a tool that renames files.
+
+Piped mode therefore classifies stdin by file type, via
+`os.fstat(sys.stdin.fileno()).st_mode`:
+
+| Type | Example | Content? |
+| --- | --- | --- |
+| `S_ISFIFO` | `ls . \| ls-sql` | yes |
+| `S_ISREG` | `ls-sql < paths.txt` | yes |
+| `S_ISSOCK` | socket | yes |
+| `S_ISCHR` | terminal, `/dev/null` | no |
+| no descriptor | closed stdin, `fstat` raising | no |
+
+`isatty()` still runs first and short-circuits, since a terminal is never piped
+content. Checking it first also means a caller that fakes a tty gets the answer
+it expects without a real file descriptor behind it.
+
+Note the direction. This is a strict subset of `not isatty()`. Only character
+devices leave the set, so nothing newly counts as piped. Sockets stay in
+because every non-terminal counted before, and dropping them would regress
+anyone feeding one.
+
+Two questions, two tests. Keep them apart:
+
+| Question | Test |
+| --- | --- |
+| Is a human at a terminal? (banners, prompts, colour) | `isatty()` |
+| Did the user pipe content in? (input source) | classify by file type |
+
+### A pipe cannot be an error here
+
+The house rule elsewhere is that a pipe plus an explicit flag is two input
+sources and should be an error. That rule does not survive contact with this
+grammar, and the reason is worth recording so it does not get "fixed" back.
+
+Every ls-sql command carries a path. If a pipe plus a command were an error,
+then any ls-sql call that merely *inherits* a piped stdin would fail:
 
 ```bash
-ls-sql --target .                                          # fresh from filesystem
-ls-sql -R --target .                                       # recursive
-ls-sql --query "SELECT * WHERE sd:mn='sdxl'" --target .    # filtered query
-ls-sql --query "SELECT * WHERE ud:2006-london IS NOT NULL" --target ~/photos
-ls-sql --query "SELECT * WHERE zi:ext CONTAINS 'exe'" --target .
+printf 'unrelated\n' | sh -c "ls-sql harvest ~/photos"
 ```
+
+Nothing there aims a pipe at ls-sql. The shell handed the whole pipeline's
+stdin to the subshell, and ls-sql inherited it. The same happens inside a
+Makefile recipe, a CI step, a `while read` loop, or any subprocess. That is
+not a rare corner, it is most scripted use.
+
+A deliberate pipe and an inherited one are the same file descriptor. There is
+no signal that separates them, so the error would fire on intent it cannot
+see. This is the isatty trap one level up: a test that looks like it measures
+user intent but actually measures process plumbing.
+
+So stdin is read in exactly one case, a bare `ls-sql` with nothing else on the
+line. With a command word present, stdin is left alone. Not read, not an
+error.
+
+The cost is real and accepted: `ls . | ls-sql harvest .` silently ignores the
+pipe. The alternative breaks working scripts, which is worse.
+
+It also leaves the door open. Should a command ever read piped paths, it will
+need stdin readable alongside a command word, which an error here would have
+foreclosed.
+
+### List mode
+
+```bash
+ls-sql list .                                        # fresh from filesystem
+ls-sql list . -R                                     # recursive
+ls-sql list . --query "SELECT * WHERE sd:mn='sdxl'"  # filtered query
+ls-sql list ~/photos --query "SELECT * WHERE ud:2006-london IS NOT NULL"
+ls-sql list . --query "SELECT * WHERE zi:ext CONTAINS 'exe'"
+```
+
+`list` is the read-only mode and the one that feeds a pipeline. Without
+`--query` it prints every parsed row, which is the `ls` in ls-sql.
 
 ### Harvest mode
 
 ```bash
-ls-sql --harvest --dry-run --target .                  # preview renames, no changes
-ls-sql --harvest --commit --target .                   # execute renames
-ls-sql --harvest --commit -R --target .                # recursive harvest
-ls-sql --harvest --commit --ext jpg,png --target .     # filter by extension
-ls-sql --harvest --commit --max 50 --target .          # limit files per run
+ls-sql harvest .                         # preview renames, no changes
+ls-sql harvest . --commit                # execute renames
+ls-sql harvest . --commit -R             # recursive harvest
+ls-sql harvest . --commit --ext jpg,png  # filter by extension
+ls-sql harvest . --commit --max 50       # limit files per run
 ```
 
-### Reversal mode
+### Reset mode
 
 ```bash
-ls-sql --remove-all-tags --dry-run --target ~/photos   # preview strip
-ls-sql --remove-all-tags --commit --target ~/photos    # restore original filenames
-ls-sql --remove-all-tags --commit -R --target ~/photos # recursive
+ls-sql reset ~/photos             # preview strip
+ls-sql reset ~/photos --commit    # restore original filenames
+ls-sql reset ~/photos --commit -R # recursive
 ```
+
+Named for what it does to the file, not for the flags it removes. It restores
+the original filename exactly.
 
 ### Set mode
 
 Write user-defined tags directly into filenames. Harvest-first is automatic.
 Dry-run by default. Pass `--commit` to execute.
 
+The tags themselves ride `--tags`, since `set` is now the verb.
+
 ```bash
 # single file
-ls-sql --set "ud:album=london-2006" --target photo.jpg
-ls-sql --set "ud:album=london-2006" --commit --target photo.jpg
+ls-sql set photo.jpg --tags "ud:album=london-2006"
+ls-sql set photo.jpg --tags "ud:album=london-2006" --commit
 
 # multiple tags -- caret-separated
-ls-sql --set "ud:album=london-2006^ud:where=thames" --commit --target photo.jpg
+ls-sql set photo.jpg --tags "ud:album=london-2006^ud:where=thames" --commit
 
 # directory -- all files in directory
-ls-sql --set "ud:trip=london" --commit --target ~/photos/london
+ls-sql set ~/photos/london --tags "ud:trip=london" --commit
 
 # recursive directory
-ls-sql --set "ud:trip=london" -R --commit --target ~/photos/london
+ls-sql set ~/photos/london --tags "ud:trip=london" -R --commit
 
 # select by content hash
-ls-sql --fh="ab2c3d,9fs7g1" --set "ud:album=london" --commit --target ~/photos
-
-# pipe from query -- preferred pattern for filtered sets (V2, see Pipe pattern)
-ls-sql --query "SELECT * WHERE ex:cam='fujifilm-x-t5'" --target ~/photos \
-  | ls-sql --set "ud:gear=fuji" --commit
+ls-sql set ~/photos --tags "ud:album=london" --fh "ab2c3d,9fs7g1" --commit
 ```
 
 #### Operators
@@ -341,15 +469,13 @@ ud:key==value   no-op     -- value present, skip silently
   Harvest will overwrite machine-generated tags on the next run anyway.
 - Multi-value separator is `;` (semicolon). Comma is allowed in values.
 - Empty tag after `-=` is removed entirely. Empty tags are noise.
-- `ls:fh` is protected. `--set` silently skips it. Content integrity
+- `ls:fh` is protected. `set` silently skips it. Content integrity
   is the one thing the tool guards without being asked.
-- `--ext` is ignored in `--set` mode. File selection is by path or hash,
-  not by extension.
 
 #### Harvest-first
 
-If a file has not been harvested, `--set` harvests it first silently, then
-applies the tag. The user does not need to run `--harvest` first.
+If a file has not been harvested, `set` harvests it first silently, then
+applies the tag. The user does not need to run `harvest` first.
 
 #### `--fh` flag
 
@@ -357,26 +483,26 @@ Select files by content hash. Comma-separated list of 16-char SHA256 prefixes.
 Hash does not change when the filename changes -- stable selector across renames.
 
 ```bash
-ls-sql --fh="ab2c3d4e5f,9fs7g1h2i3" --set "ud:album=london" --commit --target ~/photos
+ls-sql set ~/photos --tags "ud:album=london" --fh "ab2c3d4e5f,9fs7g1h2i3" --commit
 ```
 
 Matches any harvested file whose `ls:fh` value starts with the given prefix.
 
 ### Flag rules
 
-- `--target` is required in every non-piped mode. It names the directory or file
-  the mode acts on -- there is no positional form.
-- `--harvest` without `--dry-run` or `--commit` defaults to `--dry-run`. Safe always.
+- The path is required in every non-piped mode. It names the directory or file
+  the command acts on, and it sits right after the command word.
+- `harvest` without `--dry-run` or `--commit` defaults to `--dry-run`. Safe always.
 - `-R` is recursive, same as `ls -R`.
 - `--ext` overrules whitelisted extensions -- jpg, jpeg, png, gif, webp, mp3, m4a, zip, cbz.
-- `--query` filters output. `FROM` clause is omitted -- there is only one thing to query.
-- `--remove-all-tags` strips everything between the first and second `^^^`. The human
+- `--query` filters `list` output. `FROM` clause is omitted -- there is only one
+  thing to query.
+- `reset` strips everything between the first and second `^^^`. The human
   comment right of the second `^^^` is preserved. Fully reversible.
-- `--query` output is clean path-per-line with no summary line -- pipeable
+- `list` output is clean path-per-line with no summary line -- pipeable
   into any Unix tool as-is. There is no `--quiet`; there is nothing to silence.
-- `--set` without `--commit` is dry-run. Safe always.
-- `--fh` requires `--set`. It is a file selector, not a query.
-- `--ext` is ignored when `--set` is active.
+- `set` without `--commit` is dry-run. Safe always.
+- `--fh` belongs to `set`. It is a file selector, not a query.
 
 ---
 
@@ -392,10 +518,41 @@ Output prints full path, pipeable, composable result.
 Pipe it anywhere:
 
 ```bash
-ls-sql -R --target . | grep "euler-a"
-ls-sql --query "SELECT * WHERE sd:mn='flux'" --target . | wc -l
-ls-sql --target . | awk '{print $1}' | xargs open
+ls-sql list . -R | grep "euler-a"
+ls-sql list . --query "SELECT * WHERE sd:mn='flux'" | wc -l
+ls-sql list . | awk '{print $1}' | xargs open
 ```
+
+### Rename previews
+
+Query output is the pipeable half. The three modes that rename files print a
+preview instead, and they all print the same shape.
+
+```text
+   skipped : note.txt  (extension not in whitelist or --ext list)
+   dry-run : photo.jpg
+        -> : photo^^^ls:hd=20260805^ls:fh=87428fc522^^^.jpg
+
+2 file(s) dry-run, 1 skipped
+  (no files changed -- pass --commit to execute)
+```
+
+The status word is right-aligned in a fixed field so the ` : ` column lines up
+across every line and every mode. The field is as wide as the longest status
+word, which is `restored`. Statuses are `renamed`, `restored`, `updated`, and
+`dry-run` for work that happened or would happen, plus `skipped`. Anything not
+`skipped` counts toward the actioned total.
+
+Skipped lines appear only under `--verbose`. The reason is in parentheses. The
+directory prefix appears only under `-R`, and it applies to every mode that
+walks a tree, `--fh` included.
+
+The dry-run hint prints whenever `--commit` was not passed. It is the reminder
+that nothing on disk moved.
+
+`verify` is deliberately not this shape. It reports `ok`, `CHANGED`,
+and `skipped` against stored hashes, has no rename to preview, and carries its
+own summary line. Different question, different output.
 
 ---
 
@@ -438,21 +595,17 @@ ls-sql = "lssql.cli:main"
 
 ---
 
-## V1 vs V2
+## What ls-sql does
 
-### V1 -- ship it
+- Harvests metadata automatically from JPG, PNG, GIF, WEBP, MP3, M4A, ZIP, CBZ
+- Carries a human comment, appended to the filename by hand
+- Carries user-defined tags for albums, captions, sequences
+- Queries with `SELECT * WHERE`, supporting `=`, `CONTAINS`, `IS NOT NULL`,
+  and `IS NULL`
+- Keeps no database and no cache
 
-- Metadata harvested automatically from JPG, PNG, GIF, WEBP, MP3
-- Human comment appended manually to filename
-- User defined tags for albums, captions, sequences
-- Query engine -- `SELECT * WHERE` with `=`, `CONTAINS`, `IS NOT NULL`, `IS NULL`
-- No database, no cache
-
-### V2 -- full fidelity
-
-- Prompt summarizer: harvest a short slug from the SD prompt into the filename
-- Command line album viewer (Kitty / iTerm2 inline image protocol)
-- These are additive. The V1 filename format does not change.
+That list is the whole tool. Anything not described in this document is not
+implemented, however reasonable it sounds.
 
 ---
 
@@ -489,18 +642,18 @@ Congratulations. Go get proper gear. 🎣
 
 ## Granular Details
 
-### `--query` mode
+### `list` mode
 
 Scan a directory and filter files using a SQL-like query against harvested tags
 in filenames. No database. Reads filenames directly.
 
 ```bash
-ls-sql --target .
-ls-sql -R --target .
-ls-sql --query "SELECT * WHERE sd:mn='sdxl'" --target .
-ls-sql --query "SELECT * WHERE zi:ext CONTAINS 'exe'" --target .
-ls-sql --query "SELECT * WHERE ud:2006-london IS NOT NULL" --target ~/photos
-ls-sql --query "SELECT * WHERE ls:fh IS NULL" --target .
+ls-sql list .
+ls-sql list . -R
+ls-sql list . --query "SELECT * WHERE sd:mn='sdxl'"
+ls-sql list . --query "SELECT * WHERE zi:ext CONTAINS 'exe'"
+ls-sql list ~/photos --query "SELECT * WHERE ud:2006-london IS NOT NULL"
+ls-sql list . --query "SELECT * WHERE ls:fh IS NULL"
 ```
 
 Supports `=`, `CONTAINS`, `IS NOT NULL`, `IS NULL`. Output is full path per
@@ -508,18 +661,18 @@ line, pipeable.
 
 ---
 
-### `--harvest` mode
+### `harvest` mode
 
 Read file metadata and encode it as tagged key-value pairs into the filename.
 Dry-run by default. Pass `--commit` to execute. Idempotent -- already harvested
 files are skipped.
 
 ```bash
-ls-sql --harvest --dry-run --target .
-ls-sql --harvest --commit --target .
-ls-sql --harvest --commit -R --target ~/photos
-ls-sql --harvest --commit --ext jpg,png --target .
-ls-sql --harvest --commit --max 50 --target .
+ls-sql harvest . --dry-run
+ls-sql harvest . --commit
+ls-sql harvest ~/photos --commit -R
+ls-sql harvest . --commit --ext jpg,png
+ls-sql harvest . --commit --max 50
 ```
 
 Supports `--ext` to filter by extension, `--max` to limit files per run,
@@ -527,22 +680,22 @@ Supports `--ext` to filter by extension, `--max` to limit files per run,
 
 ---
 
-### `--remove-all-tags` mode
+### `reset` mode
 
 Strip all harvested tags from filenames and restore originals. Human comments
 (right of second `^^^`) are preserved. Dry-run by default. Pass `--commit`
 to execute.
 
 ```bash
-ls-sql --remove-all-tags --dry-run --target ~/photos
-ls-sql --remove-all-tags --commit --target ~/photos
-ls-sql --remove-all-tags --commit -R --target ~/photos
+ls-sql reset ~/photos --dry-run
+ls-sql reset ~/photos --commit
+ls-sql reset ~/photos --commit -R
 ```
 
 Fully reversible. The original filename left of the first `^^^` is never
 modified during harvest, so restoration is lossless.
 
-### `--verify` mode
+### `verify` mode
 
 Compare `ls:fh` in filename against current file content hash.
 
@@ -552,8 +705,8 @@ Compare `ls:fh` in filename against current file content hash.
 - files without `ls:fh` skipped with reason: no ls:fh -- harvest first
 
 ```bash
-ls-sql --verify --target .
-ls-sql --verify -R --target ~/photos
+ls-sql verify .
+ls-sql verify ~/photos -R
 ```
 
 ---
@@ -599,8 +752,7 @@ separately from compressed data, so filenames are readable without
 decompression. No extraction required.
 
 macOS resource forks (`__MACOSX/` and `._` sidecar files) are filtered
-automatically. They are implementation noise, not real content. Pass
-`--include-resource-forks` to include them (planned).
+automatically. They are implementation noise, not real content. There is no flag to keep them.
 
 ```text
 zi:cnt    total entry count (files and directories, including dot entries)
@@ -627,17 +779,18 @@ archive^^^ls:hd=20260428^ls:fh=a3f2c8f91b^zi:cnt=42^zi:ext=jpg;png;txt^zi:dot=3^
 #### Query examples
 
 ```bash
-ls-sql --query "SELECT * WHERE zi:dot IS NOT NULL" --target .       # ZIPs with dot entries
-ls-sql --query "SELECT * WHERE zi:ext CONTAINS 'exe'" --target .    # ZIPs with executables
-ls-sql --query "SELECT * WHERE zi:cnt IS NOT NULL" --target .       # any harvested ZIP
+ls-sql list . --query "SELECT * WHERE zi:dot IS NOT NULL"       # ZIPs with dot entries
+ls-sql list . --query "SELECT * WHERE zi:ext CONTAINS 'exe'"    # ZIPs with executables
+ls-sql list . --query "SELECT * WHERE zi:cnt IS NOT NULL"       # any harvested ZIP
 ```
 
 ---
 
-### Stable Diffusion (`sd:`) -- v1.x
+### Stable Diffusion (`sd:`)
 
 Generation parameters written into PNG metadata by A1111 and compatible tools.
-Read via `Pillow` PNGInfo. Planned for v1.x. Not harvested in v1.
+The namespace is reserved and the tag names are fixed below, but nothing
+harvests them. Listed here so the names are not reused for anything else.
 
 ```text
 sd:mn    Model name
@@ -689,8 +842,8 @@ IMG_4523^^^ex:dto=2006:11:15^ls:fh=d4e9b23c82^ud:2006-london=4^ud:where=oxo-buil
 Query an album:
 
 ```bash
-ls-sql --query "SELECT * WHERE ud:2006-london IS NOT NULL" --target ~/photos
-ls-sql --query "SELECT * WHERE ud:2006-london IS NOT NULL" --target ~/photos | sort
+ls-sql list ~/photos --query "SELECT * WHERE ud:2006-london IS NOT NULL"
+ls-sql list ~/photos --query "SELECT * WHERE ud:2006-london IS NOT NULL" | sort
 ```
 
 ##### Album rules
@@ -717,7 +870,7 @@ hamburger^^^ls:fh=d4e9b23c82^ud:ingredients=beef;lettuce;tomato^^^road-trip-2015
 Query by ingredient:
 
 ```bash
-ls-sql --query "SELECT * WHERE ud:ingredients CONTAINS 'beef'" --target ~/recipes
+ls-sql list ~/recipes --query "SELECT * WHERE ud:ingredients CONTAINS 'beef'"
 ```
 
 Same pattern works for tags, moods, colours, keywords -- anything you'd reach
@@ -733,7 +886,7 @@ regardless of filename.
 Detect duplicates with a one-liner -- no harvester change needed:
 
 ```bash
-ls-sql --query "SELECT * WHERE ls:fh IS NOT NULL" -R --target . \
+ls-sql list . -R --query "SELECT * WHERE ls:fh IS NOT NULL" \
   | awk -F'[\\^]' '{for(i=1;i<=NF;i++) if($i~/^ls:fh=/) print substr($i,6), $0}' \
   | sort \
   | awk 'prev==$1 {print} {prev=$1}'
@@ -743,9 +896,9 @@ Prints only files that share a hash with at least one other file.
 
 ---
 
-### `--set` mode
+### `set` mode
 
-`--set` is the write side of ls-sql. It encodes user-defined metadata directly
+`set` is the write side of ls-sql. It encodes user-defined metadata directly
 into filenames using the Hatfile tag format.
 
 #### Tag manipulation logic
@@ -756,25 +909,25 @@ Given a harvested filename:
 photo^^^ls:hd=20260504^ls:fh=ab2c3d4e5f^ud:tags=sunny^^^london.jpg
 ```
 
-**Overwrite** `--set "ud:tags=rainy"`:
+**Overwrite** `--tags "ud:tags=rainy"`:
 
 ```text
 photo^^^ls:hd=20260504^ls:fh=ab2c3d4e5f^ud:tags=rainy^^^london.jpg
 ```
 
-**Append** `--set "ud:tags+=foggy"`:
+**Append** `--tags "ud:tags+=foggy"`:
 
 ```text
 photo^^^ls:hd=20260504^ls:fh=ab2c3d4e5f^ud:tags=rainy;foggy^^^london.jpg
 ```
 
-**Remove value** `--set "ud:tags-=rainy"`:
+**Remove value** `--tags "ud:tags-=rainy"`:
 
 ```text
 photo^^^ls:hd=20260504^ls:fh=ab2c3d4e5f^ud:tags=foggy^^^london.jpg
 ```
 
-**Delete tag** `--set "ud:tags-="`:
+**Delete tag** `--tags "ud:tags-="`:
 
 ```text
 photo^^^ls:hd=20260504^ls:fh=ab2c3d4e5f^^^london.jpg
@@ -795,7 +948,7 @@ au:al=Simon & Garfunkel, Greatest Hits    # comma in value, fine
 #### Protected namespaces
 
 2-letter namespaces (except `ud:`) are reserved for ls-sql built-in harvesters.
-`--set` rejects any operation targeting a reserved namespace and stops with an
+`set` rejects any operation targeting a reserved namespace and stops with an
 error. No files are touched.
 
 ```text
@@ -805,31 +958,24 @@ ud:album=x    allowed -- ud: is the blessed user namespace
 myapp:key=x   allowed -- 3-letter+ namespaces are free
 ```
 
-#### Pipe pattern
+#### Piping into `set`
 
-The preferred pattern for applying tags to a filtered set of files:
+`set` does not read paths from stdin. Piping a file list into it does not tag
+anything: a bare `ls-sql` is the only invocation that reads stdin, and it
+passes paths through unchanged.
 
 ```bash
-ls-sql --query "SELECT * WHERE ex:cam='fujifilm-x-t5'" --target ~/photos \
-  | ls-sql --set "ud:gear=fuji" --commit
+# this prints the list twice over. It does not tag.
+ls-sql list ~/photos --query "SELECT * WHERE ex:cam='fujifilm-x-t5'" \
+  | ls-sql set --tags "ud:gear=fuji" --commit
 ```
 
-`--query` output is already clean path-per-line, ready for the pipe. `--set`
-reads piped paths from stdin, same as any Unix tool.
-
-**Status: not implemented (V2).** Current piped mode is pure passthrough --
-it triggers before argument parsing and ignores all flags, so the downstream
-`ls-sql --set ... --commit` above parses-and-prints instead of tagging.
-Applying `--set` to piped paths is the intended V2 behaviour of this pattern.
-
-Combining `--query` and `--set` in a single command is not supported.
-The pipe is explicit, composable, and shows you what will be tagged before
-you commit. That is the Unix way.
+Combining `list` and `set` in a single invocation is not supported either.
+Select with `--fh` or a path, and let dry-run show you what will change.
 
 #### Implementation note
 
-New module: `setter.py` Mirrors `scanner.py`, `parser.py`, `query.py`. All
-plain nouns, no prefix. Tag manipulation logic lives here. `cli.py`
-wires in the new mode alongside harvest, remove, verify.
+`setter.py` mirrors `scanner.py`, `parser.py`, and `query.py`. Plain nouns, no
+prefix. Tag manipulation logic lives there; `cli_set.py` drives it.
 
 ---

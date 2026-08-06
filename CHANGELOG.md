@@ -6,12 +6,55 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [v0.15.0] - 2026-08-06
+
+The version line returns to `0.x`, resuming after `v0.14.1`. The `v1.0.0` and
+`v1.1.0` tags stay in git history; they were premature.
+
+### Changed
+
+- **Breaking: the CLI takes a command word and a positional path.**
+  `ls-sql <command> PATH [options]`, with `list`, `harvest`, `set`, `verify`,
+  and `reset` replacing the mode flags. `--target` is gone, `--remove-all-tags`
+  is now `reset`, and the `--set` payload moved to `--tags`. `ls-sql .` is a
+  usage error: there is no default command.
+- The command word must be the first argument and the path the second. Neither
+  slot is filled from a token appearing later on the line.
+- Options are scoped to their command. `list PATH --commit` and
+  `harvest PATH --query ...` are errors now, not silently ignored.
+- A bare command word prints that command's help and exits 0, whatever stdin
+  is. Help used to be gated on `isatty()`, so the same command answered
+  differently from a shell than under `nohup`, cron, or an editor.
+- Piped passthrough happens only for a bare `ls-sql`. With a command word
+  present, stdin is neither read nor an error.
+- `cli.py` split into `cli_list`, `cli_harvest`, `cli_set`, `cli_verify`,
+  `cli_reset`, and `cli_util`. `harvest`, `set`, and `reset` share one preview
+  printer, documented in `DESIGN.md` and pinned by
+  `tests/test_cli_output_format.py`.
+- Consolidated duplicated logic behind `parser.should_skip()` and
+  `harvester_util.tags_to_string()`.
+
+### Fixed
+
+- Piped mode is entered only when stdin actually carries content: a pipe, a
+  redirect, or a socket, classified by file type rather than by
+  `not isatty()`. Unattended runs get `/dev/null` on stdin, so a scheduled
+  harvest used to pass through, rename nothing, and exit 0.
+- Directory walks in `harvest`, `reset`, and `verify` now skip trailing-dot
+  filenames (e.g. `foo.`) consistently with every other mode.
+- Rename previews line up on the same status column in every mode. `reset`
+  padded to 8 characters and the others to 7, so one status word printed at
+  two different indents.
+- `set --fh -R` shows each match's directory prefix, like every other recursive
+  mode. Files sharing a basename across directories were indistinguishable in
+  the preview.
+
 ## [v1.1.0] - 2026-07-19
 
 ### Fixed
 
-- `pipx install` now works with git+https: pinned runtime dependencies are 
-  declared in `pyproject.toml` `[project] dependencies`. Previously it failed 
+- `pipx install` now works with git+https: pinned runtime dependencies are
+  declared in `pyproject.toml` `[project] dependencies`. Previously it failed
   at startup with the `pysqlite3` install hint.
 
 ### Added

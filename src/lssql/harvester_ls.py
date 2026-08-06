@@ -4,10 +4,10 @@
 # https://github.com/east-van-ai
 # ==============================================
 
-from datetime import datetime
-from PIL import Image, UnidentifiedImageError
-
 import hashlib
+from datetime import datetime
+
+from PIL import Image
 
 # ------------------------------------------------------------
 # Supported image file extensions
@@ -32,12 +32,16 @@ def extract_dimension(filepath: str, ext: str) -> tuple[str, str]:
         with Image.open(filepath) as img:
             w, h = img.size
             return str(w), str(h)
-    except UnidentifiedImageError, Exception:
+    # UnidentifiedImageError is a subclass of Exception, so catching Exception
+    # alone is the same net, minus the redundancy.
+    except Exception:  # noqa: BLE001 -- any decode failure means no dimensions
         return "", ""
 
 
 def harvest_date() -> str:
-    return datetime.now().strftime("%Y%m%d")
+    # local date on purpose: the tag records the day the file was harvested
+    # on this machine, not a UTC instant.
+    return datetime.now().strftime("%Y%m%d")  # noqa: DTZ005
 
 
 def content_hash(filepath: str) -> str:

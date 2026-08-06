@@ -9,7 +9,8 @@ audio metadata extraction (MP3, M4A)
 """
 
 from mutagen._util import MutagenError
-from lssql.harvester_util import sanitize_tag_value
+
+from lssql.harvester_util import sanitize_tag_value, tags_to_string
 
 SUPPORTED_AUDIO_EXTS = {".mp3", ".m4a"}
 
@@ -27,7 +28,7 @@ def build_au_tag_string(filepath: str, ext: str) -> str:
         tags = _extract_m4a_tags(filepath)
     else:
         return ""
-    return "^".join(f"{k}={v}" for k, v in tags.items())
+    return tags_to_string(tags)
 
 
 def _extract_mp3_tags(filepath: str) -> dict:

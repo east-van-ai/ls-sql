@@ -1,0 +1,17 @@
+# for orphan release on GitHub
+
+.git/
+.github/**/*.yaml
+.gitignore
+.weed-out-ignore
+data/.gitkeep
+src/**/*.py
+tests/*.py
+CHANGELOG.md
+DESIGN.md
+HATFILE.md
+LICENSE
+pyproject.toml
+README.md
+requirements-dev.txt
+requirements.txt

@@ -143,7 +143,7 @@ def test_parse_no_operator():
 
 
 def test_parse_missing_namespace():
-    ops, error = parse_set_string("fruit=banana")
+    _ops, error = parse_set_string("fruit=banana")
     assert error is not None
     assert "namespace" in error
 
@@ -156,7 +156,7 @@ def test_parse_protected_ls():
 
 
 def test_parse_protected_ex():
-    ops, error = parse_set_string("ex:cam=fuji")
+    _ops, error = parse_set_string("ex:cam=fuji")
     assert error is not None
     assert "reserved" in error
 

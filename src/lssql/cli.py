@@ -16,407 +16,347 @@
 # filename is the cache.
 #
 # Usage:
-#    ls-sql --target PATH                            query mode (default)
-#    ls-sql --query "SELECT * WHERE k='v'" --target PATH
-#    ls-sql --harvest [--commit] --target PATH       harvest metadata into names
-#    ls-sql --remove-all-tags [--commit] --target PATH
-#    ls-sql --verify --target PATH                   re-hash, compare ls:fh
-#    ls-sql --set "ud:key=value" [--commit] --target PATH
-#    ls <dir> | ls-sql                               piped passthrough parse
+#    ls-sql <command> PATH [options]
 #
-# --target PATH   required in every non-piped mode; --target . for cwd
+#    LIST
+#    ls-sql list PATH                                  print parsed rows
+#    ls-sql list PATH --query "SELECT * WHERE k='v'"   filtered
+#
+#    HARVEST
+#    ls-sql harvest PATH [--commit]                    metadata into names
+#    ls-sql harvest PATH --commit --ext jpg,png --max 50
+#
+#    SET
+#    ls-sql set PATH --tags "ud:key=value" [--commit]
+#    ls-sql set PATH --tags "ud:key=value" --fh HASHES [--commit]
+#
+#    VERIFY
+#    ls-sql verify PATH                                re-hash, compare ls:fh
+#
+#    RESET
+#    ls-sql reset PATH [--commit]                      restore original names
+#
+#    PIPE
+#    ls <dir> | ls-sql                                 passthrough parse
+#
+# The command word goes right after ls-sql, the path right after the
+# command. Both positions are fixed; see DESIGN.md, "Positions are
+# decided, not inferred".
+#
 # -R              recursive        --verbose        show skipped files
-# --max N         harvest at most N files
-# --ext EXTS      harvest only these extensions (e.g. jpg,png)
-# --fh HASHES     select files by ls:fh hash prefix (with --set)
+# --max N         harvest at most N files            (harvest)
+# --ext EXTS      harvest only these extensions      (harvest)
+# --tags TAGS     caret-separated tag operations     (set, required)
+# --fh HASHES     select files by ls:fh hash prefix  (set)
+# --query QUERY   SQL-like filter                    (list)
 #
-# Dry run by default: harvest/set/remove preview renames and change
+# Dry run by default: harvest/set/reset preview renames and change
 # nothing. --commit is the single escalation that actually renames.
 # --dry-run wins if both are passed.
 #
 # Exit codes:
 #    0   success
-#    1   ls-sql error; also --verify when changed content is found
-#    2   argument-parsing errors (unknown flag, missing value)
+#    1   ls-sql error; also verify when changed content is found
+#    2   argument-parsing errors (unknown command, unknown flag)
 #
 # License: MIT
 # ==============================================
 """
 
 import argparse
+import io
 import os
+import stat
 import sys
 
-from lssql.harvester import (
-    harvest_directory,
-    harvest_file,
-    remove_tags_from_directory,
-    remove_tags_from_filename_commit,
-    verify_file,
-    verify_directory,
-)
+from lssql import cli_harvest, cli_list, cli_reset, cli_set, cli_verify
 from lssql.harvester_util import parse_ext_filter
 from lssql.parser import build_file_path, parse_filename, should_skip, split_path
-from lssql.query import run_query
-from lssql.setter import parse_set_string, set_file, set_tags_directory
-from lssql.scanner import scan_directory
+from lssql.setter import parse_set_string
 
 USAGE = (
-    "Usage: ls-sql --target PATH"
-    " [--query Q | --harvest | --remove-all-tags | --verify | --set TAGS]"
-    " [options]\n"
+    "Usage: ls-sql list|harvest|set|verify|reset PATH [options]\n"
     "       ls <dir> | ls-sql"
 )
 
+_MODE_MODULES = {
+    "list": cli_list,
+    "harvest": cli_harvest,
+    "set": cli_set,
+    "verify": cli_verify,
+    "reset": cli_reset,
+}
 
-def run_harvest_mode(
-    target: str,
-    commit: bool,
-    recursive: bool,
-    max_files: int = 0,
-    allowed_exts: set = set(),
-    verbose: bool = False,
-) -> None:
-    if os.path.isfile(target):
-        directory = os.path.dirname(target) or "."
-        filename = os.path.basename(target) or ""
-        results = (
-            []
-            if should_skip(filename)
-            else [harvest_file(directory, filename, commit, allowed_exts)]
-        )
-    else:
-        results = harvest_directory(
-            target,
-            commit=commit,
-            recursive=recursive,
-            max_files=max_files,
-            allowed_exts=allowed_exts,
-        )
+# options each command accepts beyond the shared ones. Anything outside its
+# command is an error, not something quietly ignored: `list PATH --commit`
+# reads like a request to change files, and list never touches them.
+_COMMAND_OPTIONS = {
+    "list": {"query"},
+    "harvest": {"ext", "max_files", "commit", "dry_run"},
+    "set": {"tags", "fh", "commit", "dry_run"},
+    "verify": set(),
+    "reset": {"commit", "dry_run"},
+}
 
-    for r in results:
-        status = r["status"]
-        directory = f"{r['directory']}/" if recursive else ""
-        if status in ("renamed", "dry-run"):
-            print(f"  {status:>7} : {directory}{r['file']}")
-            print(f"       -> : {directory}{r['new_name']}")
-        elif status == "skipped" and verbose:
-            print(f"  skipped : {directory}{r['file']}  ({r['reason']})")
-
-    actioned = sum(1 for r in results if r["status"] in ("renamed", "dry-run"))
-    skipped = sum(1 for r in results if r["status"] == "skipped")
-
-    mode_label = "committed" if commit else "dry-run"
-    print(f"\n{actioned} file(s) {mode_label}, {skipped} skipped")
-
-    if not commit:
-        print("  (no files changed -- pass --commit to execute)")
+# argparse dest -> the spelling to put in an error message
+_OPTION_FLAGS = {
+    "query": "--query",
+    "ext": "--ext",
+    "max_files": "--max",
+    "tags": "--tags",
+    "fh": "--fh",
+    "commit": "--commit",
+    "dry_run": "--dry-run",
+}
 
 
-def run_remove_mode(
-    target: str, commit: bool, recursive: bool, verbose: bool = False
-) -> None:
-    if os.path.isfile(target):
-        directory = os.path.dirname(target) or "."
-        filename = os.path.basename(target) or ""
-        results = (
-            []
-            if should_skip(filename)
-            else [remove_tags_from_filename_commit(directory, filename, commit)]
-        )
-    else:
-        results = remove_tags_from_directory(target, commit=commit, recursive=recursive)
-
-    for r in results:
-        status = r["status"]
-        directory = f"{r['directory']}/" if recursive else ""
-        if status in ("restored", "dry-run"):
-            print(f"  {status:>8} : {directory}{r['file']}")
-            print(f"        -> : {directory}{r['new_name']}")
-        elif status == "skipped" and verbose:
-            print(f"   skipped : {directory}{r['file']}  ({r['reason']})")
-
-    actioned = sum(1 for r in results if r["status"] in ("restored", "dry-run"))
-    skipped = sum(1 for r in results if r["status"] == "skipped")
-
-    mode_label = "committed" if commit else "dry-run"
-    print(f"\n{actioned} file(s) {mode_label}, {skipped} skipped")
-
-    if not commit:
-        print("  (no files changed -- pass --commit to execute)")
+def _die(message: str) -> None:
+    """print an ls-sql error plus USAGE to stderr and exit 1."""
+    print(f"ls-sql: {message}", file=sys.stderr)
+    print(USAGE, file=sys.stderr)
+    sys.exit(1)
 
 
-def run_verify_mode(target: str, recursive: bool, verbose: bool) -> int:
+def stdin_has_content() -> bool:
     """
-    returns exit code -- 0 if all ok, 1 if any changed.
+    return True when stdin carries data: a pipe, a redirected file, or a socket.
+
+    This is not the same question as isatty(). A terminal is not content, but
+    neither is /dev/null, which is what cron, systemd, nohup, CI runners, and
+    any subprocess with unattached stdin hand a process. `not isatty()` treats
+    those as piped input, so a scheduled `ls-sql --harvest --commit` used to
+    fall into passthrough mode, read nothing, rename nothing, and exit 0.
+
+    Classifying by file type separates them; isatty() cannot:
+
+    - S_ISFIFO -- a real pipe (`ls . | ls-sql`). Content.
+    - S_ISREG  -- a redirect (`ls-sql < paths.txt`). Content.
+    - S_ISSOCK -- socket. Content.
+    - S_ISCHR  -- terminal or /dev/null. Not content.
+    - stdin closed, or fileno()/fstat() failing. Not content.
+
+    Note the direction: this is *narrower* than `not isatty()`, a strict subset
+    of it. Only character devices leave the set. See DESIGN.md, "Piped is a
+    file type, not the absence of a terminal".
     """
+    stream = sys.stdin
+    if stream is None:
+        return False
 
-    if os.path.isfile(target):
-        directory = os.path.dirname(target) or "."
-        filename = os.path.basename(target) or ""
-        results = [] if should_skip(filename) else [verify_file(directory, filename)]
-    else:
-        results = verify_directory(target, recursive=recursive)
+    # A terminal is never piped content. Checking first also means a caller
+    # that fakes a tty gets the answer it expects without a real file
+    # descriptor behind it.
+    try:
+        if stream.isatty():
+            return False
+    except AttributeError, ValueError:
+        return False
 
-    if verbose:
-        for r in results:
-            status = r["status"]
-            directory = f"{r['directory']}/" if recursive else ""
-            if status == "ok":
-                print(f"       ok : {directory}{r['file']}")
-            elif status == "changed":
-                print(f"  CHANGED : {directory}{r['file']}")
-                print(f"         expected : {r['stored']}")
-                print(f"           actual : {r['actual']}")
-            elif status == "skipped":
-                print(f"  skipped : {directory}{r['file']}  ({r['reason']})")
+    try:
+        mode = os.fstat(stream.fileno()).st_mode
+    except AttributeError, OSError, ValueError, io.UnsupportedOperation:
+        # No usable descriptor (closed, or replaced by an object without one).
+        return False
 
-    checked = sum(1 for r in results if r["status"] in ("ok", "changed"))
-    changed = sum(1 for r in results if r["status"] == "changed")
-    skipped = sum(1 for r in results if r["status"] == "skipped")
-
-    print(f"\n{checked} file(s) checked, {changed} changed, {skipped} skipped")
-
-    return 1 if changed else 0
+    return stat.S_ISFIFO(mode) or stat.S_ISREG(mode) or stat.S_ISSOCK(mode)
 
 
-def run_set_mode(
-    target: str,
-    ops: list[dict],
-    commit: bool,
-    recursive: bool = False,
-    verbose: bool = False,
-    fh: str = "",
-) -> int:
+def _build_parser():
     """
-    target is either a file path or a directory path.
+    build ls-sql's single flat parser.
+
+    Flat, not subparsers: the command and the path are ordinary positionals
+    whose slots main() pins against sys.argv directly. See DESIGN.md,
+    "Positions are decided, not inferred".
     """
-    if fh:
-        # --fh mode: scan directory, match by hash, apply ops
-        hashes = {h.strip() for h in fh.replace(",", ";").split(";")}
-        rows = scan_directory(target, recursive=recursive)
-        targets = [
-            r
-            for r in rows
-            if r.get("tags", {}).get("ls:fh", "")[: len(next(iter(hashes)))] in hashes
-        ]
-        if not targets:
-            print("ls-sql: no files matched --fh hashes", file=sys.stderr)
-            return 1
-
-        results = [set_file(r["path"], r["filename"], ops, commit) for r in targets]
-        # print results inline
-        for res in results:
-            status = res["status"]
-            if status in ("updated", "dry-run"):
-                print(f"  {status:>7} : {res['file']}")
-                print(f"       -> : {res['new_name']}")
-            elif status == "skipped" and verbose:
-                print(f"  skipped : {res['file']}  ({res['reason']})")
-        actioned = sum(1 for r in results if r["status"] in ("updated", "dry-run"))
-        skipped = sum(1 for r in results if r["status"] == "skipped")
-        mode_label = "committed" if commit else "dry-run"
-        print(f"\n{actioned} file(s) {mode_label}, {skipped} skipped")
-        if not commit:
-            print("  (no files changed -- pass --commit to execute)")
-
-        return 0
-
-    if os.path.isfile(target):
-        directory = os.path.dirname(target) or "."
-        filename = os.path.basename(target) or ""
-        results = (
-            []
-            if should_skip(filename)
-            else [set_file(directory, filename, ops, commit)]
-        )
-    else:
-        results = set_tags_directory(target, ops, commit, recursive=recursive)
-
-    for r in results:
-        status = r["status"]
-        directory = f"{r['directory']}/" if recursive else ""
-        if status in ("updated", "dry-run"):
-            print(f"  {status:>7} : {directory}{r['file']}")
-            print(f"       -> : {directory}{r['new_name']}")
-        elif status == "skipped" and verbose:
-            print(f"  skipped : {directory}{r['file']}  ({r['reason']})")
-
-    actioned = sum(1 for r in results if r["status"] in ("updated", "dry-run"))
-    skipped = sum(1 for r in results if r["status"] == "skipped")
-
-    mode_label = "committed" if commit else "dry-run"
-    print(f"\n{actioned} file(s) {mode_label}, {skipped} skipped")
-
-    if not commit:
-        print("  (no files changed -- pass --commit to execute)")
-
-    return 0
-
-
-def run_query_mode(
-    target: str,
-    query: str = "",
-    recursive: bool = False,
-) -> int:
-    if os.path.isfile(target):
-        directory = os.path.dirname(target) or "."
-        filename = os.path.basename(target) or ""
-        if should_skip(filename):
-            rows = []
-        else:
-            parsed = parse_filename(filename)
-            parsed["path"] = directory
-            rows = [parsed]
-    else:
-        rows = scan_directory(target, recursive=recursive)
-
-    if query:
-        matched, error = run_query(query, rows)
-        if error:
-            print(f"ls-sql: {error}", file=sys.stderr)
-            return 1
-        matched.sort(key=lambda d: d["filename"].lower())
-        for row in matched:
-            print(build_file_path(row))
-    else:
-        rows.sort(key=lambda d: d["filename"].lower())
-        for row in rows:
-            print(build_file_path(row))
-
-    return 0
-
-
-def main():
-    # argparse only kicks in when there are actual args
     parser = argparse.ArgumentParser(
         prog="ls-sql",
         description="pipeable ls with SQL querying and metadata harvesting",
+        # no abbreviations: --com must not silently mean --commit
+        allow_abbrev=False,
     )
+
     parser.add_argument(
-        "--target",
-        type=str,
-        default="",
-        metavar="PATH",
-        help="(required) target directory or filename: use --target . for the current directory",
+        "command",
+        choices=list(_MODE_MODULES),
+        help="list | harvest | set | verify | reset",
     )
+
+    # the path each command acts on -- second bare word, registered after the
+    # command so it renders second in the usage line. nargs="?" because a bare
+    # command word is a help request, not an error; main() enforces that the
+    # path really is sys.argv[2].
+    parser.add_argument(
+        "path",
+        nargs="?",
+        metavar="PATH",
+        default=None,
+        help="directory or file to act on; use . for the current directory",
+    )
+
+    # shared options
+    parser.add_argument("-R", action="store_true", dest="recursive", help="recursive")
+    parser.add_argument("--verbose", action="store_true", help="show skipped files")
+    parser.add_argument("--commit", action="store_true", help="execute renames")
+    parser.add_argument(
+        "--dry-run", action="store_true", help="preview only, no changes"
+    )
+
+    # scoped options -- accepted by the parser, then checked against
+    # _COMMAND_OPTIONS so a flag aimed at the wrong command is an error
     parser.add_argument(
         "--query",
         type=str,
         default="",
         metavar="QUERY",
-        help="SQL-like query string: SELECT * WHERE key='value'",
-    )
-    parser.add_argument("--harvest", action="store_true", help="harvest mode")
-    parser.add_argument(
-        "--remove-all-tags",
-        action="store_true",
-        help="strip all harvested tags, restore original filenames",
-    )
-    parser.add_argument(
-        "--max",
-        type=int,
-        default=0,
-        metavar="N",
-        help="maximum number of files to harvest",
+        help="(list) SQL-like query string: SELECT * WHERE key='value'",
     )
     parser.add_argument(
         "--ext",
         type=str,
         default="",
         metavar="EXTS",
-        help="comma-separated list of extensions to harvest (e.g. jpg,png)",
+        help="(harvest) comma-separated extensions to harvest (e.g. jpg,png)",
     )
     parser.add_argument(
-        "--dry-run", action="store_true", help="preview only, no changes"
+        "--max",
+        type=int,
+        default=0,
+        dest="max_files",
+        metavar="N",
+        help="(harvest) maximum number of files to harvest",
     )
-    parser.add_argument("--commit", action="store_true", help="execute renames")
     parser.add_argument(
-        "--verify",
-        action="store_true",
-        help="compare ls:fh in filename against current file content hash",
-    )
-    parser.add_argument(
-        "--set",
+        "--tags",
         type=str,
         default="",
         metavar="TAGS",
-        help="caret-separated tag operations: ud:key=value^ud:other+=append",
+        help="(set) caret-separated tag operations: ud:key=value^ud:other+=append",
     )
     parser.add_argument(
         "--fh",
         type=str,
         default="",
         metavar="HASHES",
-        help="comma-separated ls:fh prefixes to select files by content hash",
+        help="(set) comma-separated ls:fh prefixes to select files by content hash",
     )
-    parser.add_argument("--verbose", action="store_true", help="show skipped files")
-    parser.add_argument("-R", action="store_true", dest="recursive", help="recursive")
 
-    # piped mode: ls data | python src/lssql/cli.py
-    if not sys.stdin.isatty():
-        for line in sys.stdin:
-            path, filename = split_path(line.strip())
-            if should_skip(filename):
-                continue
-            parsed = parse_filename(filename)
-            parsed["path"] = path
-            print(build_file_path(parsed))
-        sys.exit(0)
+    return parser
 
-    # bare invocation on a TTY: print the banner, touch nothing
+
+def _reject_out_of_scope_options(args) -> None:
+    """error on any scoped option that does not belong to args.command."""
+    allowed = _COMMAND_OPTIONS[args.command]
+    for dest, flag in _OPTION_FLAGS.items():
+        if dest in allowed:
+            continue
+        if getattr(args, dest):
+            _die(f"{flag} is not an option of '{args.command}'.")
+
+
+def main():
+    # A bare `ls-sql` is the only invocation that reads stdin. With a command
+    # word present, stdin is not an input source at all and is left alone.
+    #
+    # Tempting to make a pipe plus a command a two-sources error, the way
+    # every other house CLI treats a pipe plus a flag. It cannot work here.
+    # An inherited pipe is indistinguishable from a deliberate one at the
+    # file-descriptor level, so `printf x | sh -c 'ls-sql harvest .'` -- and
+    # every ls-sql call inside a shell pipeline, Makefile recipe, or
+    # subprocess -- would fail on a pipe the user never aimed at ls-sql.
+    # Same trap as reading isatty() as "piped", one level up.
     if len(sys.argv) == 1:
+        if stdin_has_content():
+            for line in sys.stdin:
+                path, filename = split_path(line.strip())
+                if should_skip(filename):
+                    continue
+                parsed = parse_filename(filename)
+                parsed["path"] = path
+                print(build_file_path(parsed))
+            sys.exit(0)
+
+        # nothing piped, nothing asked for: print the banner, touch nothing
         print(__doc__)
         sys.exit(0)
 
-    args = parser.parse_args()
+    args = _build_parser().parse_args()
 
-    if not args.target:
-        print(
-            "ls-sql: --target is required; use '--target .' for the current directory.",
-            file=sys.stderr,
+    # git-style: the command word must come right after 'ls-sql', not after
+    # some flag that happens to parse. argparse has already resolved
+    # args.command correctly -- it knows which raw token is the positional
+    # regardless of interleaving -- so a flag came first exactly when that
+    # token is not sys.argv[1]. A missing or misspelled command never reaches
+    # here: it fails inside parse_args() with argparse's own error, exit 2.
+    if sys.argv[1] != args.command:
+        _die(f"the command must come right after 'ls-sql' (got {sys.argv[1]!r} first).")
+
+    # ...and the path must come right after the command, in sys.argv[2].
+    # Unlike the command word, argparse cannot be trusted to have resolved
+    # this: since Python 3.12 it back-fills a trailing optional positional
+    # from a token appearing after any number of flags, so
+    # `ls-sql harvest --commit .` would parse happily with path set. That
+    # would let the accepted grammar drift from the documented one, so the
+    # slot is decided here on a single token. Anything argparse found
+    # elsewhere is discarded; ls-sql does not go hunting for a path.
+    path_token = sys.argv[2] if len(sys.argv) > 2 else None
+    if path_token is None or path_token.startswith("-"):
+        args.path = None
+
+    # a command word and nothing else at all is a request for help, not an
+    # error: same treatment as bare `ls-sql` above, one level down. Once any
+    # other argument is present the user has asked for something specific,
+    # and answering a wrong request with help would hide the mistake.
+    #
+    # No isatty() check. What was typed decides this, not how the process was
+    # launched. Gating on the terminal made `ls-sql harvest` exit 0 from a
+    # shell and 1 under nohup, cron, or an editor, on identical input.
+    if args.path is None:
+        if len(sys.argv) == 2:
+            print(_MODE_MODULES[args.command].__doc__)
+            sys.exit(0)
+        _die(
+            "a path is required right after the command; use '.' for the current directory."
         )
-        print(USAGE, file=sys.stderr)
-        sys.exit(1)
 
-    if not (os.path.isdir(args.target) or os.path.isfile(args.target)):
-        print(f"ls-sql: directory or file not found: {args.target}", file=sys.stderr)
-        print(USAGE, file=sys.stderr)
-        sys.exit(1)
+    if not (os.path.isdir(args.path) or os.path.isfile(args.path)):
+        _die(f"directory or file not found: {args.path}")
 
-    # standalone remove all tags mode
+    _reject_out_of_scope_options(args)
 
-    if args.remove_all_tags:
-        commit = args.commit and not args.dry_run
-        run_remove_mode(
-            args.target,
+    commit = args.commit and not args.dry_run
+
+    if args.command == "list":
+        exit_code = cli_list.run_list_mode(
+            args.path,
+            query=args.query,
+            recursive=args.recursive,
+        )
+        if exit_code:
+            print(USAGE, file=sys.stderr)
+        sys.exit(exit_code)
+
+    if args.command == "harvest":
+        cli_harvest.run_harvest_mode(
+            args.path,
             commit=commit,
             recursive=args.recursive,
+            max_files=args.max_files,
+            allowed_exts=parse_ext_filter(args.ext),
             verbose=args.verbose,
         )
         sys.exit(0)
 
-    # standalone verify mode
+    if args.command == "set":
+        if not args.tags:
+            _die("set requires --tags.")
 
-    if args.verify:
-        # 1 if changed data is found; otherwise 0
-        exit_code = run_verify_mode(
-            args.target, recursive=args.recursive, verbose=args.verbose
-        )
-        sys.exit(exit_code)
-
-    # standalone set mode
-
-    if args.set:
-        ops, error = parse_set_string(args.set)
+        ops, error = parse_set_string(args.tags)
         if error:
-            print(f"ls-sql: {error}", file=sys.stderr)
-            print(USAGE, file=sys.stderr)
-            sys.exit(1)
+            _die(error)
 
-        commit = args.commit and not args.dry_run
-        exit_code = run_set_mode(
-            args.target,
+        exit_code = cli_set.run_set_mode(
+            args.path,
             ops,
             commit=commit,
             recursive=args.recursive,
@@ -427,31 +367,21 @@ def main():
             print(USAGE, file=sys.stderr)
         sys.exit(exit_code)
 
-    # standalone harvest mode
-
-    if args.harvest:
-        commit = args.commit and not args.dry_run
-        allowed_exts = parse_ext_filter(args.ext)
-        run_harvest_mode(
-            args.target,
-            commit=commit,
-            recursive=args.recursive,
-            max_files=args.max,
-            allowed_exts=allowed_exts,
-            verbose=args.verbose,
+    if args.command == "verify":
+        # 1 if changed data is found; otherwise 0
+        exit_code = cli_verify.run_verify_mode(
+            args.path, recursive=args.recursive, verbose=args.verbose
         )
-        sys.exit(0)
+        sys.exit(exit_code)
 
-    # standalone query mode
-
-    exit_code = run_query_mode(
-        args.target,
-        query=args.query,
+    # reset
+    cli_reset.run_reset_mode(
+        args.path,
+        commit=commit,
         recursive=args.recursive,
+        verbose=args.verbose,
     )
-    if exit_code:
-        print(USAGE, file=sys.stderr)
-    sys.exit(exit_code)
+    sys.exit(0)
 
 
 if __name__ == "__main__":

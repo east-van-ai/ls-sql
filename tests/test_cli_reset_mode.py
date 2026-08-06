@@ -18,8 +18,9 @@ two approaches, both demonstrated intentionally:
   Option B -- main() direct: calls main() with mocked sys.argv.
               faster, same argparse and run mode logic, no child process.
               freeze_date applies -- same process, patch works fine.
-              sys.stdin.isatty must be patched to True -- pytest's capturing
-              makes isatty() return False, which triggers piped mode in cli.py.
+              no stdin patching needed -- cli.stdin_has_content() classifies
+              stdin by file type, and pytest's captured stdin has no usable
+              fileno(), so piped mode stays off by itself.
               sys.stdout patched with StringIO to capture print() output.
               this is the CI-safe approach. all Option B tests run in CI.
 """
@@ -37,15 +38,16 @@ from tests.test_cli import _ls_sql_bin, skip_on_ci
 
 
 @skip_on_ci
-def test_cli_remove_all_tags_mode_option_a_directory_as_arg(tmp_path):
+def test_cli_reset_mode_option_a_directory_as_arg(tmp_path):
     """
-    subprocess: --remove-all-tags with a directory as arg
+    subprocess: reset with a directory as arg
     """
     (tmp_path / "photo.jpg").write_text("fake image content")
 
     subprocess.run(
-        [_ls_sql_bin(), "--harvest", "--commit", "--target", str(tmp_path)],
+        [_ls_sql_bin(), "harvest", str(tmp_path), "--commit"],
         capture_output=True,
+        check=False,
         text=True,
     )
 
@@ -53,8 +55,9 @@ def test_cli_remove_all_tags_mode_option_a_directory_as_arg(tmp_path):
     assert marked is not None
 
     result = subprocess.run(
-        [_ls_sql_bin(), "--remove-all-tags", "--commit", "--target", str(tmp_path)],
+        [_ls_sql_bin(), "reset", str(tmp_path), "--commit"],
         capture_output=True,
+        check=False,
         text=True,
     )
 
@@ -64,15 +67,16 @@ def test_cli_remove_all_tags_mode_option_a_directory_as_arg(tmp_path):
 
 
 @skip_on_ci
-def test_cli_remove_all_tags_mode_option_a_filename_as_arg(tmp_path):
+def test_cli_reset_mode_option_a_filename_as_arg(tmp_path):
     """
-    subprocess: --remove-all-tags with a filename as arg
+    subprocess: reset with a filename as arg
     """
     (tmp_path / "photo.jpg").write_text("fake image content")
 
     subprocess.run(
-        [_ls_sql_bin(), "--harvest", "--commit", "--target", str(tmp_path)],
+        [_ls_sql_bin(), "harvest", str(tmp_path), "--commit"],
         capture_output=True,
+        check=False,
         text=True,
     )
 
@@ -80,8 +84,9 @@ def test_cli_remove_all_tags_mode_option_a_filename_as_arg(tmp_path):
     assert marked is not None
 
     result = subprocess.run(
-        [_ls_sql_bin(), "--remove-all-tags", "--commit", "--target", str(marked)],
+        [_ls_sql_bin(), "reset", str(marked), "--commit"],
         capture_output=True,
+        check=False,
         text=True,
     )
 
@@ -93,18 +98,15 @@ def test_cli_remove_all_tags_mode_option_a_filename_as_arg(tmp_path):
 # -- Option B: main() direct --
 
 
-def test_cli_remove_all_tags_mode_option_b_directory_as_arg(tmp_path, freeze_date):
+def test_cli_reset_mode_option_b_directory_as_arg(tmp_path, freeze_date):
     """
-    main(): --remove-all-tags with a directory as arg
+    main(): reset with a directory as arg
     """
     (tmp_path / "photo.jpg").write_text("fake image content")
 
     with (
-        patch("sys.stdin.isatty", return_value=True),
         patch("sys.stdout", new_callable=StringIO),
-        patch(
-            "sys.argv", ["ls-sql", "--harvest", "--commit", "--target", str(tmp_path)]
-        ),
+        patch("sys.argv", ["ls-sql", "harvest", str(tmp_path), "--commit"]),
         pytest.raises(SystemExit),
     ):
         main()
@@ -113,11 +115,10 @@ def test_cli_remove_all_tags_mode_option_b_directory_as_arg(tmp_path, freeze_dat
     assert marked is not None
 
     with (
-        patch("sys.stdin.isatty", return_value=True),
         patch("sys.stdout", new_callable=StringIO) as mock_out,
         patch(
             "sys.argv",
-            ["ls-sql", "--remove-all-tags", "--commit", "--target", str(tmp_path)],
+            ["ls-sql", "reset", str(tmp_path), "--commit"],
         ),
         pytest.raises(SystemExit) as exc,
     ):
@@ -128,18 +129,15 @@ def test_cli_remove_all_tags_mode_option_b_directory_as_arg(tmp_path, freeze_dat
     assert "1 file(s) committed, 0 skipped" in mock_out.getvalue()
 
 
-def test_cli_remove_all_tags_mode_option_b_filename_as_arg(tmp_path, freeze_date):
+def test_cli_reset_mode_option_b_filename_as_arg(tmp_path, freeze_date):
     """
-    main(): --remove-all-tags with a filename as arg
+    main(): reset with a filename as arg
     """
     (tmp_path / "photo.jpg").write_text("fake image content")
 
     with (
-        patch("sys.stdin.isatty", return_value=True),
         patch("sys.stdout", new_callable=StringIO),
-        patch(
-            "sys.argv", ["ls-sql", "--harvest", "--commit", "--target", str(tmp_path)]
-        ),
+        patch("sys.argv", ["ls-sql", "harvest", str(tmp_path), "--commit"]),
         pytest.raises(SystemExit),
     ):
         main()
@@ -148,11 +146,10 @@ def test_cli_remove_all_tags_mode_option_b_filename_as_arg(tmp_path, freeze_date
     assert marked is not None
 
     with (
-        patch("sys.stdin.isatty", return_value=True),
         patch("sys.stdout", new_callable=StringIO) as mock_out,
         patch(
             "sys.argv",
-            ["ls-sql", "--remove-all-tags", "--commit", "--target", str(marked)],
+            ["ls-sql", "reset", str(marked), "--commit"],
         ),
         pytest.raises(SystemExit) as exc,
     ):
@@ -166,20 +163,17 @@ def test_cli_remove_all_tags_mode_option_b_filename_as_arg(tmp_path, freeze_date
 # -- hidden files --
 
 
-def test_cli_remove_all_tags_mode_option_b_directory_containing_hidden_files(
+def test_cli_reset_mode_option_b_directory_containing_hidden_files(
     tmp_path, freeze_date
 ):
-    """main(): --remove-all-tags with a directory as arg"""
+    """main(): reset with a directory as arg"""
     (tmp_path / "aaa.jpg").write_text("fake content")
     (tmp_path / "bbb.jpg").write_text("fake content")
     (tmp_path / "ccc.jpg").write_text("fake content")
 
     with (
-        patch("sys.stdin.isatty", return_value=True),
         patch("sys.stdout", new_callable=StringIO) as mock_out,
-        patch(
-            "sys.argv", ["ls-sql", "--harvest", "--commit", "--target", str(tmp_path)]
-        ),
+        patch("sys.argv", ["ls-sql", "harvest", str(tmp_path), "--commit"]),
         pytest.raises(SystemExit) as exc,
     ):
         main()
@@ -200,11 +194,10 @@ def test_cli_remove_all_tags_mode_option_b_directory_containing_hidden_files(
     files[2].rename(files[2].parent / ("." + files[2].stem))
 
     with (
-        patch("sys.stdin.isatty", return_value=True),
         patch("sys.stdout", new_callable=StringIO) as mock_out,
         patch(
             "sys.argv",
-            ["ls-sql", "--remove-all-tags", "--commit", "--target", str(tmp_path)],
+            ["ls-sql", "reset", str(tmp_path), "--commit"],
         ),
         pytest.raises(SystemExit) as exc,
     ):
@@ -214,18 +207,13 @@ def test_cli_remove_all_tags_mode_option_b_directory_containing_hidden_files(
     assert "1 file(s) committed, 0 skipped" in mock_out.getvalue()
 
 
-def test_cli_remove_all_tags_mode_option_b_hidden_filename_with_extension(
-    tmp_path, freeze_date
-):
-    """main(): --remove-all-tags with a hidden filename WITH extension as arg"""
+def test_cli_reset_mode_option_b_hidden_filename_with_extension(tmp_path, freeze_date):
+    """main(): reset with a hidden filename WITH extension as arg"""
     (tmp_path / "bbb.jpg").write_text("fake content")
 
     with (
-        patch("sys.stdin.isatty", return_value=True),
         patch("sys.stdout", new_callable=StringIO) as mock_out,
-        patch(
-            "sys.argv", ["ls-sql", "--harvest", "--commit", "--target", str(tmp_path)]
-        ),
+        patch("sys.argv", ["ls-sql", "harvest", str(tmp_path), "--commit"]),
         pytest.raises(SystemExit) as exc,
     ):
         main()
@@ -238,11 +226,10 @@ def test_cli_remove_all_tags_mode_option_b_hidden_filename_with_extension(
     marked = marked.rename(marked.parent / ("." + marked.stem + marked.suffix))
 
     with (
-        patch("sys.stdin.isatty", return_value=True),
         patch("sys.stdout", new_callable=StringIO) as mock_out,
         patch(
             "sys.argv",
-            ["ls-sql", "--remove-all-tags", "--commit", "--target", str(marked)],
+            ["ls-sql", "reset", str(marked), "--commit"],
         ),
         pytest.raises(SystemExit) as exc,
     ):
@@ -252,18 +239,15 @@ def test_cli_remove_all_tags_mode_option_b_hidden_filename_with_extension(
     assert "0 file(s) committed, 0 skipped" in mock_out.getvalue()
 
 
-def test_cli_remove_all_tags_mode_option_b_hidden_filename_without_extension(
+def test_cli_reset_mode_option_b_hidden_filename_without_extension(
     tmp_path, freeze_date
 ):
-    """main(): --remove-all-tags with a hidden filename WITHOUT extension as arg"""
+    """main(): reset with a hidden filename WITHOUT extension as arg"""
     (tmp_path / "ccc.jpg").write_text("fake content")
 
     with (
-        patch("sys.stdin.isatty", return_value=True),
         patch("sys.stdout", new_callable=StringIO) as mock_out,
-        patch(
-            "sys.argv", ["ls-sql", "--harvest", "--commit", "--target", str(tmp_path)]
-        ),
+        patch("sys.argv", ["ls-sql", "harvest", str(tmp_path), "--commit"]),
         pytest.raises(SystemExit) as exc,
     ):
         main()
@@ -277,11 +261,10 @@ def test_cli_remove_all_tags_mode_option_b_hidden_filename_without_extension(
     print(marked)
 
     with (
-        patch("sys.stdin.isatty", return_value=True),
         patch("sys.stdout", new_callable=StringIO) as mock_out,
         patch(
             "sys.argv",
-            ["ls-sql", "--remove-all-tags", "--commit", "--target", str(marked)],
+            ["ls-sql", "reset", str(marked), "--commit"],
         ),
         pytest.raises(SystemExit) as exc,
     ):

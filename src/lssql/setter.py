@@ -152,8 +152,7 @@ def apply_operations(tags: dict, ops: list[dict]) -> dict:
         elif op == "==":
             if values and values != {""}:
                 continue  # no-op -- value present after ==
-            if key in result:
-                del result[key]
+            result.pop(key, None)
 
     return result
 

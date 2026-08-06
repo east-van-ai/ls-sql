@@ -6,14 +6,14 @@
 
 """
 round-trip integration tests for lssql.harvester.
-harvest then remove-all-tags must equal the original filename.
+harvest then reset must equal the original filename.
 * 'tmp_path'    -- built-in pytest fixture. fresh temporary directory per test.
 * 'freeze_date' -- custom fixture in conftest.py. deterministic harvest date.
 """
 
 from lssql.harvester import harvest_directory, harvest_file, remove_tags_from_directory
 
-# -- harvest then remove-all-tags --
+# -- harvest then reset --
 
 
 def test_round_trip_plain_file(tmp_path, freeze_date):
@@ -80,7 +80,7 @@ def test_verify_after_content_change_is_changed(tmp_path, freeze_date):
     harvest_file(str(tmp_path), "photo.jpg", commit=True)
 
     # modify the file content after harvesting
-    harvested = list(tmp_path.glob("photo^^^*"))[0]
+    harvested = next(iter(tmp_path.glob("photo^^^*")))
     harvested.write_text("tampered content")
 
     results = verify_directory(str(tmp_path))

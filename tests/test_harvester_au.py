@@ -9,11 +9,13 @@ tests for lssql.harvester_au -- MP3 and M4A metadata extraction.
 uses mutagen to write real tags into tmp files.
 """
 
-import pytest
 import shutil
 from pathlib import Path
+
+import pytest
 from mutagen.easyid3 import EasyID3
-from lssql.harvester_au import build_au_tag_string, _extract_mp3_tags, _extract_m4a_tags
+
+from lssql.harvester_au import _extract_m4a_tags, _extract_mp3_tags, build_au_tag_string
 
 
 def make_mp3(path):

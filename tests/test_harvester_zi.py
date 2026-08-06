@@ -10,7 +10,8 @@ uses zipfile stdlib to create real ZIP files in tmp_path.
 """
 
 import zipfile
-from lssql.harvester_zi import build_zi_tag_string, _extract_zip_tags
+
+from lssql.harvester_zi import _extract_zip_tags, build_zi_tag_string
 
 
 def make_zip(path, entries: list[tuple[str, bytes]]) -> str:

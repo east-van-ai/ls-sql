@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+src/*.egg-info
+.eggs/
+build/
+dist/
+
+# Virtual environments
+.venv/
+venv/
+
+# Test / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# local test data
+data/*
+!data/.gitkeep
+tests/data/*
+
+# markdown
+.markdownlint.json
+.markdownlintignore
+
+# Editor / OS
+.DS_Store
+*.swp
+.idea/
+.vscode/
+
+# Claude local settings
+.claude/settings.local.json

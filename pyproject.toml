@@ -1,0 +1,24 @@
+[project]
+name = "ls-sql"
+version = "0.15.0"
+requires-python = ">=3.14"
+# tested on 2026-07-19
+dependencies = [
+    "mutagen==1.47.0",
+    "piexif==1.1.3",
+    "pillow==12.2.0"
+]
+
+[project.scripts]
+ls-sql = "lssql.cli:main"
+
+# Deliberately no [tool.ruff.lint] select -- ls-sql runs ruff's full default
+# rule set and passes all of it. Narrowing to a hand-written list would
+# silently stop enforcing most of it. The exact-version pin in
+# requirements-dev.txt is what freezes the rule set: ruff 0.16 expanded its
+# defaults, which turned a green repo red without a line of code changing.
+
+[tool.pytest.ini_options]
+# sys capture required for Option A subprocess tests (local only, skipped in CI)
+addopts = "--capture=sys"
+testpaths = ["tests"]

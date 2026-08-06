@@ -5,16 +5,18 @@
 # ==============================================
 
 import os
+
 from lssql.harvester_au import build_au_tag_string
 from lssql.harvester_ex import build_ex_tag_string
 from lssql.harvester_ls import content_hash, extract_dimension, harvest_date
 from lssql.harvester_util import (
-    is_already_harvested,
-    is_troublesome_name,
     DEFAULT_HARVEST_EXTS,
     SEPARATOR,
+    is_already_harvested,
+    is_troublesome_name,
 )
 from lssql.harvester_zi import build_zi_tag_string
+from lssql.parser import should_skip
 
 
 def build_harvested_filename(filename: str, directory: str = "") -> str:
@@ -45,7 +47,7 @@ def build_harvested_filename(filename: str, directory: str = "") -> str:
 
 
 def harvest_file(
-    directory: str, filename: str, commit: bool, allowed_exts: set = set()
+    directory: str, filename: str, commit: bool, allowed_exts: set | None = None
 ) -> dict:
     """
     Process a single file. Returns a result dict describing what happened.
@@ -121,12 +123,12 @@ def harvest_directory(
     commit: bool,
     recursive: bool = False,
     max_files: int = 0,
-    allowed_exts: set = set(),
+    allowed_exts: set | None = None,
 ) -> list[dict]:
     """
     Recursively harvest files and returns results.
     'max_files = 0' means no limit.
-    'allowed_exts = set()' means no filter, accept all.
+    An empty or absent allowed_exts means no filter, accept all.
     """
     results = []
 
@@ -154,11 +156,7 @@ def harvest_directory(
 
             filename = entry.name
 
-            if filename.startswith("."):
-                continue
-
-            _, ext = os.path.splitext(filename)
-            if not ext:
+            if should_skip(filename):
                 continue
 
             result = harvest_file(path, filename, commit, allowed_exts)
@@ -222,11 +220,7 @@ def remove_tags_from_directory(
 
             filename = entry.name
 
-            if filename.startswith("."):
-                continue
-
-            _, ext = os.path.splitext(filename)
-            if not ext:
+            if should_skip(filename):
                 continue
 
             if is_troublesome_name(filename):
@@ -327,11 +321,7 @@ def verify_directory(path: str, recursive: bool = False) -> list[dict]:
 
             filename = entry.name
 
-            if filename.startswith("."):
-                continue
-
-            _, ext = os.path.splitext(filename)
-            if not ext:
+            if should_skip(filename):
                 continue
 
             results.append(verify_file(path, filename))

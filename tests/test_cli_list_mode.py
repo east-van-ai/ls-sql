@@ -5,7 +5,7 @@
 # ==============================================
 
 """
-CLI --query mode tests for lssql.
+CLI list mode tests for lssql.
 two approaches, both demonstrated intentionally:
 
   Option A -- subprocess: spawns the real CLI as a child process.
@@ -18,8 +18,9 @@ two approaches, both demonstrated intentionally:
   Option B -- main() direct: calls main() with mocked sys.argv.
               faster, same argparse and run mode logic, no child process.
               freeze_date applies -- same process, patch works fine.
-              sys.stdin.isatty must be patched to True -- pytest's capturing
-              makes isatty() return False, which triggers piped mode in cli.py.
+              no stdin patching needed -- cli.stdin_has_content() classifies
+              stdin by file type, and pytest's captured stdin has no usable
+              fileno(), so piped mode stays off by itself.
               sys.stdout patched with StringIO to capture print() output.
               this is the CI-safe approach. all Option B tests run in CI.
 """
@@ -38,15 +39,16 @@ from tests.test_cli import _ls_sql_bin, skip_on_ci
 
 
 @skip_on_ci
-def test_cli_query_mode_option_a_directory_as_arg(tmp_path):
+def test_cli_list_mode_option_a_directory_as_arg(tmp_path):
     """
     subprocess: --query with a directory as arg
     """
     (tmp_path / "photo.jpg").write_text("fake image content")
 
     subprocess.run(
-        [_ls_sql_bin(), "--harvest", "--commit", "--target", str(tmp_path)],
+        [_ls_sql_bin(), "harvest", str(tmp_path), "--commit"],
         capture_output=True,
+        check=False,
         text=True,
     )
 
@@ -56,12 +58,13 @@ def test_cli_query_mode_option_a_directory_as_arg(tmp_path):
     result = subprocess.run(
         [
             _ls_sql_bin(),
+            "list",
+            str(tmp_path),
             "--query",
             "SELECT * WHERE ls:hd IS NOT NULL",
-            "--target",
-            str(tmp_path),
         ],
         capture_output=True,
+        check=False,
         text=True,
     )
 
@@ -72,15 +75,16 @@ def test_cli_query_mode_option_a_directory_as_arg(tmp_path):
 
 
 @skip_on_ci
-def test_cli_query_mode_option_a_filename_as_arg(tmp_path):
+def test_cli_list_mode_option_a_filename_as_arg(tmp_path):
     """
     subprocess: --query with a filename as arg
     """
     (tmp_path / "photo.jpg").write_text("fake image content")
 
     subprocess.run(
-        [_ls_sql_bin(), "--harvest", "--commit", "--target", str(tmp_path)],
+        [_ls_sql_bin(), "harvest", str(tmp_path), "--commit"],
         capture_output=True,
+        check=False,
         text=True,
     )
 
@@ -90,12 +94,13 @@ def test_cli_query_mode_option_a_filename_as_arg(tmp_path):
     result = subprocess.run(
         [
             _ls_sql_bin(),
+            "list",
+            str(marked),
             "--query",
             "SELECT * WHERE ls:hd IS NOT NULL",
-            "--target",
-            str(marked),
         ],
         capture_output=True,
+        check=False,
         text=True,
     )
 
@@ -108,16 +113,13 @@ def test_cli_query_mode_option_a_filename_as_arg(tmp_path):
 # -- Option B: main() direct --
 
 
-def test_cli_query_mode_option_b_directory_as_arg(tmp_path, freeze_date):
+def test_cli_list_mode_option_b_directory_as_arg(tmp_path, freeze_date):
     """main(): --query with a directory as arg"""
     (tmp_path / "photo.jpg").write_text("fake image content")
 
     with (
-        patch("sys.stdin.isatty", return_value=True),
         patch("sys.stdout", new_callable=StringIO),
-        patch(
-            "sys.argv", ["ls-sql", "--harvest", "--commit", "--target", str(tmp_path)]
-        ),
+        patch("sys.argv", ["ls-sql", "harvest", str(tmp_path), "--commit"]),
         pytest.raises(SystemExit),
     ):
         main()
@@ -126,16 +128,15 @@ def test_cli_query_mode_option_b_directory_as_arg(tmp_path, freeze_date):
     assert marked is not None
 
     with (
-        patch("sys.stdin.isatty", return_value=True),
         patch("sys.stdout", new_callable=StringIO) as mock_out,
         patch(
             "sys.argv",
             [
                 "ls-sql",
+                "list",
+                str(tmp_path),
                 "--query",
                 "SELECT * WHERE ls:hd IS NOT NULL",
-                "--target",
-                str(tmp_path),
             ],
         ),
         pytest.raises(SystemExit) as exc,
@@ -148,16 +149,13 @@ def test_cli_query_mode_option_b_directory_as_arg(tmp_path, freeze_date):
     assert filename in mock_out.getvalue()
 
 
-def test_cli_query_mode_option_b_filename_as_arg(tmp_path, freeze_date):
+def test_cli_list_mode_option_b_filename_as_arg(tmp_path, freeze_date):
     """main(): --query with a filename as arg"""
     (tmp_path / "photo.jpg").write_text("fake image content")
 
     with (
-        patch("sys.stdin.isatty", return_value=True),
         patch("sys.stdout", new_callable=StringIO),
-        patch(
-            "sys.argv", ["ls-sql", "--harvest", "--commit", "--target", str(tmp_path)]
-        ),
+        patch("sys.argv", ["ls-sql", "harvest", str(tmp_path), "--commit"]),
         pytest.raises(SystemExit),
     ):
         main()
@@ -166,16 +164,15 @@ def test_cli_query_mode_option_b_filename_as_arg(tmp_path, freeze_date):
     assert marked is not None
 
     with (
-        patch("sys.stdin.isatty", return_value=True),
         patch("sys.stdout", new_callable=StringIO) as mock_out,
         patch(
             "sys.argv",
             [
                 "ls-sql",
+                "list",
+                str(marked),
                 "--query",
                 "SELECT * WHERE ls:hd IS NOT NULL",
-                "--target",
-                str(marked),
             ],
         ),
         pytest.raises(SystemExit) as exc,
@@ -191,7 +188,7 @@ def test_cli_query_mode_option_b_filename_as_arg(tmp_path, freeze_date):
 # -- hidden files --
 
 
-def test_cli_query_mode_option_b_directory_containing_hidden_files(
+def test_cli_list_mode_option_b_directory_containing_hidden_files(
     tmp_path, freeze_date
 ):
     """main(): --query with a directory as arg"""
@@ -200,11 +197,8 @@ def test_cli_query_mode_option_b_directory_containing_hidden_files(
     (tmp_path / "ccc.jpg").write_text("fake content")
 
     with (
-        patch("sys.stdin.isatty", return_value=True),
         patch("sys.stdout", new_callable=StringIO) as mock_out,
-        patch(
-            "sys.argv", ["ls-sql", "--harvest", "--commit", "--target", str(tmp_path)]
-        ),
+        patch("sys.argv", ["ls-sql", "harvest", str(tmp_path), "--commit"]),
         pytest.raises(SystemExit) as exc,
     ):
         main()
@@ -225,16 +219,15 @@ def test_cli_query_mode_option_b_directory_containing_hidden_files(
     files[2].rename(files[2].parent / ("." + files[2].stem))
 
     with (
-        patch("sys.stdin.isatty", return_value=True),
         patch("sys.stdout", new_callable=StringIO) as mock_out,
         patch(
             "sys.argv",
             [
                 "ls-sql",
+                "list",
+                str(tmp_path),
                 "--query",
                 "SELECT * WHERE ls:hd IS NOT NULL",
-                "--target",
-                str(tmp_path),
             ],
         ),
         pytest.raises(SystemExit) as exc,
@@ -247,16 +240,13 @@ def test_cli_query_mode_option_b_directory_containing_hidden_files(
     assert "/.ccc^^^" not in mock_out.getvalue()
 
 
-def test_cli_query_mode_option_b_hidden_filename_with_extension(tmp_path, freeze_date):
+def test_cli_list_mode_option_b_hidden_filename_with_extension(tmp_path, freeze_date):
     """main(): --query with a hidden filename WITH extension as arg"""
     (tmp_path / "bbb.jpg").write_text("fake content")
 
     with (
-        patch("sys.stdin.isatty", return_value=True),
         patch("sys.stdout", new_callable=StringIO) as mock_out,
-        patch(
-            "sys.argv", ["ls-sql", "--harvest", "--commit", "--target", str(tmp_path)]
-        ),
+        patch("sys.argv", ["ls-sql", "harvest", str(tmp_path), "--commit"]),
         pytest.raises(SystemExit) as exc,
     ):
         main()
@@ -269,16 +259,15 @@ def test_cli_query_mode_option_b_hidden_filename_with_extension(tmp_path, freeze
     marked = marked.rename(marked.parent / ("." + marked.stem + marked.suffix))
 
     with (
-        patch("sys.stdin.isatty", return_value=True),
         patch("sys.stdout", new_callable=StringIO) as mock_out,
         patch(
             "sys.argv",
             [
                 "ls-sql",
+                "list",
+                str(marked),
                 "--query",
                 "SELECT * WHERE ls:hd IS NOT NULL",
-                "--target",
-                str(marked),
             ],
         ),
         pytest.raises(SystemExit) as exc,
@@ -289,18 +278,15 @@ def test_cli_query_mode_option_b_hidden_filename_with_extension(tmp_path, freeze
     assert "/.bbb^^^" not in mock_out.getvalue()
 
 
-def test_cli_query_mode_option_b_hidden_filename_without_extension(
+def test_cli_list_mode_option_b_hidden_filename_without_extension(
     tmp_path, freeze_date
 ):
     """main(): --query with a hidden filename WITHOUT extension as arg"""
     (tmp_path / "ccc.jpg").write_text("fake content")
 
     with (
-        patch("sys.stdin.isatty", return_value=True),
         patch("sys.stdout", new_callable=StringIO) as mock_out,
-        patch(
-            "sys.argv", ["ls-sql", "--harvest", "--commit", "--target", str(tmp_path)]
-        ),
+        patch("sys.argv", ["ls-sql", "harvest", str(tmp_path), "--commit"]),
         pytest.raises(SystemExit) as exc,
     ):
         main()
@@ -314,16 +300,15 @@ def test_cli_query_mode_option_b_hidden_filename_without_extension(
     print(marked)
 
     with (
-        patch("sys.stdin.isatty", return_value=True),
         patch("sys.stdout", new_callable=StringIO) as mock_out,
         patch(
             "sys.argv",
             [
                 "ls-sql",
+                "list",
+                str(marked),
                 "--query",
                 "SELECT * WHERE ls:hd IS NOT NULL",
-                "--target",
-                str(marked),
             ],
         ),
         pytest.raises(SystemExit) as exc,

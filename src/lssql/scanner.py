@@ -5,6 +5,7 @@
 # ==============================================
 
 import os
+
 from lssql.parser import parse_filename, should_skip
 
 

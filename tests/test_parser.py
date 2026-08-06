@@ -7,10 +7,10 @@
 from lssql.parser import (
     build_file_path,
     parse_filename,
-    split_filename_stem,
-    split_extension,
-    split_path,
     should_skip,
+    split_extension,
+    split_filename_stem,
+    split_path,
 )
 
 # round trip test to reconstruct the original filename

@@ -34,9 +34,7 @@ def sanitize_tag_value(value: str) -> str:
 def is_troublesome_name(filename: str) -> bool:
     stem, _ = os.path.splitext(filename)
     parts = stem.split(SEPARATOR)
-    if len(parts) > 3:
-        return True
-    return False
+    return len(parts) > 3
 
 
 def is_already_harvested(filename: str) -> bool:
@@ -47,6 +45,14 @@ def is_already_harvested(filename: str) -> bool:
     if parts[1] in ["^", "^^"]:
         return False
     return len(parts[1]) > 0
+
+
+def tags_to_string(tags: dict) -> str:
+    """
+    join a tag dict into a ^-separated 'key=value' string.
+    empty dict -> empty string.
+    """
+    return "^".join(f"{k}={v}" for k, v in tags.items())
 
 
 def parse_ext_filter(ext_filter: str) -> set[str]:

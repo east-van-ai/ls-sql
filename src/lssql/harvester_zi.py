@@ -10,6 +10,8 @@ ZIP metadata extraction
 
 import zipfile
 
+from lssql.harvester_util import tags_to_string
+
 SUPPORTED_ZIP_EXTS = {".zip", ".cbz"}
 
 
@@ -70,11 +72,11 @@ def _extract_zip_tags(filepath: str) -> dict:
     cnt = len(files)
 
     exts = sorted(
-        set(
+        {
             e.filename.rsplit(".", 1)[-1].lower()
             for e in entries
             if not e.is_dir() and "." in e.filename.rsplit("/", 1)[-1]
-        )
+        }
     )
 
     dot_count = sum(
@@ -113,4 +115,4 @@ def build_zi_tag_string(filepath: str, ext: str) -> str:
     if not tags:
         return ""
 
-    return "^".join(f"{k}={v}" for k, v in tags.items())
+    return tags_to_string(tags)

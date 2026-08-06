@@ -18,8 +18,9 @@ two approaches, both demonstrated intentionally:
   Option B -- main() direct: calls main() with mocked sys.argv.
               faster, same argparse and run mode logic, no child process.
               freeze_date applies -- same process, patch works fine.
-              sys.stdin.isatty must be patched to True -- pytest's capturing
-              makes isatty() return False, which triggers piped mode in cli.py.
+              no stdin patching needed -- cli.stdin_has_content() classifies
+              stdin by file type, and pytest's captured stdin has no usable
+              fileno(), so piped mode stays off by itself.
               sys.stdout patched with StringIO to capture print() output.
               this is the CI-safe approach. all Option B tests run in CI.
 """
@@ -40,7 +41,7 @@ from tests.test_cli import _ls_sql_bin, skip_on_ci
 @skip_on_ci
 def test_cli_set_mode_option_a_directory_as_arg(tmp_path):
     """
-    subprocess: --set with a directory as arg
+    subprocess: set with a directory as arg
     """
     (tmp_path / "photo.jpg").write_text("fake image content")
     assert (tmp_path / "photo.jpg").exists()
@@ -48,13 +49,14 @@ def test_cli_set_mode_option_a_directory_as_arg(tmp_path):
     result = subprocess.run(
         [
             _ls_sql_bin(),
-            "--set",
+            "set",
+            str(tmp_path),
+            "--tags",
             "my-custom-tag:colour=green;blue",
             "--commit",
-            "--target",
-            str(tmp_path),
         ],
         capture_output=True,
+        check=False,
         text=True,
     )
 
@@ -70,7 +72,7 @@ def test_cli_set_mode_option_a_directory_as_arg(tmp_path):
 @skip_on_ci
 def test_cli_set_mode_option_a_filename_as_arg(tmp_path):
     """
-    subprocess: --set with a filename as arg
+    subprocess: set with a filename as arg
     """
     (tmp_path / "photo.jpg").write_text("fake image content")
     assert (tmp_path / "photo.jpg").exists()
@@ -78,13 +80,14 @@ def test_cli_set_mode_option_a_filename_as_arg(tmp_path):
     result = subprocess.run(
         [
             _ls_sql_bin(),
-            "--set",
+            "set",
+            str(tmp_path / "photo.jpg"),
+            "--tags",
             "my-custom-tag:colour=green;blue",
             "--commit",
-            "--target",
-            str(tmp_path / "photo.jpg"),
         ],
         capture_output=True,
+        check=False,
         text=True,
     )
 
@@ -99,12 +102,13 @@ def test_cli_set_mode_option_a_filename_as_arg(tmp_path):
 
 @skip_on_ci
 def test_cli_set_mode_option_a_no_set_arg(tmp_path):
-    """subprocess: --set arg does not exist"""
+    """subprocess: --tags given with no value is an argparse error"""
     (tmp_path / "photo.jpg").write_text("fake image content")
 
     result = subprocess.run(
-        [_ls_sql_bin(), "--set", "--commit", "--target", str(tmp_path)],
+        [_ls_sql_bin(), "set", str(tmp_path), "--tags", "--commit"],
         capture_output=True,
+        check=False,
     )
 
     assert result.returncode == 2
@@ -118,12 +122,13 @@ def test_cli_set_mode_option_a_implicit_dry_run(tmp_path):
     result = subprocess.run(
         [
             _ls_sql_bin(),
-            "--set",
-            "my-custom-tag:colour=blue;green",
-            "--target",
+            "set",
             str(tmp_path),
+            "--tags",
+            "my-custom-tag:colour=blue;green",
         ],
         capture_output=True,
+        check=False,
         text=True,
     )
 
@@ -139,13 +144,14 @@ def test_cli_set_mode_option_a_explicit_dry_run(tmp_path):
     result = subprocess.run(
         [
             _ls_sql_bin(),
-            "--set",
+            "set",
+            str(tmp_path),
+            "--tags",
             "my-custom-tag:colour=blue;green",
             "--dry-run",  # explicit dry-run
-            "--target",
-            str(tmp_path),
         ],
         capture_output=True,
+        check=False,
         text=True,
     )
 
@@ -155,32 +161,34 @@ def test_cli_set_mode_option_a_explicit_dry_run(tmp_path):
 
 @skip_on_ci
 def test_cli_set_mode_option_a_overwrite_operation(tmp_path):
-    """subprocess: --set with = overwrite operation"""
+    """subprocess: set with = overwrite operation"""
     (tmp_path / "photo.jpg").write_text("fake image content")
 
     subprocess.run(
         [
             _ls_sql_bin(),
-            "--set",
+            "set",
+            str(tmp_path),
+            "--tags",
             "my-custom-tag:colour=red",
             "--commit",
-            "--target",
-            str(tmp_path),
         ],
         capture_output=True,
+        check=False,
         text=True,
     )
 
     result = subprocess.run(
         [
             _ls_sql_bin(),
-            "--set",
+            "set",
+            str(tmp_path),
+            "--tags",
             "my-custom-tag:colour=green;blue",  # = overwrite operation
             "--commit",
-            "--target",
-            str(tmp_path),
         ],
         capture_output=True,
+        check=False,
         text=True,
     )
 
@@ -191,32 +199,34 @@ def test_cli_set_mode_option_a_overwrite_operation(tmp_path):
 
 @skip_on_ci
 def test_cli_set_mode_option_a_append_operation(tmp_path):
-    """subprocess: --set with += append"""
+    """subprocess: set with += append"""
     (tmp_path / "photo.jpg").write_text("fake image content")
 
     subprocess.run(
         [
             _ls_sql_bin(),
-            "--set",
+            "set",
+            str(tmp_path),
+            "--tags",
             "my-custom-tag:colour=red;green",
             "--commit",
-            "--target",
-            str(tmp_path),
         ],
         capture_output=True,
+        check=False,
         text=True,
     )
 
     result = subprocess.run(
         [
             _ls_sql_bin(),
-            "--set",
+            "set",
+            str(tmp_path),
+            "--tags",
             "my-custom-tag:colour+=red;blue;blue;green",  # += append operation
             "--commit",
-            "--target",
-            str(tmp_path),
         ],
         capture_output=True,
+        check=False,
         text=True,
     )
 
@@ -227,32 +237,34 @@ def test_cli_set_mode_option_a_append_operation(tmp_path):
 
 @skip_on_ci
 def test_cli_set_mode_option_a_remove_operation(tmp_path):
-    """subprocess: --set with -= remove operation"""
+    """subprocess: set with -= remove operation"""
     (tmp_path / "photo.jpg").write_text("fake image content")
 
     subprocess.run(
         [
             _ls_sql_bin(),
-            "--set",
+            "set",
+            str(tmp_path),
+            "--tags",
             "my-custom-tag:colour=red;green;blue",
             "--commit",
-            "--target",
-            str(tmp_path),
         ],
         capture_output=True,
+        check=False,
         text=True,
     )
 
     result = subprocess.run(
         [
             _ls_sql_bin(),
-            "--set",
+            "set",
+            str(tmp_path),
+            "--tags",
             "my-custom-tag:colour-=green",  # -= remove operation
             "--commit",
-            "--target",
-            str(tmp_path),
         ],
         capture_output=True,
+        check=False,
         text=True,
     )
 
@@ -263,32 +275,34 @@ def test_cli_set_mode_option_a_remove_operation(tmp_path):
 
 @skip_on_ci
 def test_cli_set_mode_option_a_delete_operation(tmp_path):
-    """subprocess: --set with == delete operation"""
+    """subprocess: set with == delete operation"""
     (tmp_path / "photo.jpg").write_text("fake image content")
 
     subprocess.run(
         [
             _ls_sql_bin(),
-            "--set",
+            "set",
+            str(tmp_path),
+            "--tags",
             "my-custom-tag:colour=green;blue",
             "--commit",
-            "--target",
-            str(tmp_path),
         ],
         capture_output=True,
+        check=False,
         text=True,
     )
 
     result = subprocess.run(
         [
             _ls_sql_bin(),
-            "--set",
+            "set",
+            str(tmp_path),
+            "--tags",
             "my-custom-tag:colour==",
             "--commit",
-            "--target",
-            str(tmp_path),
         ],
         capture_output=True,
+        check=False,
         text=True,
     )
 
@@ -301,22 +315,21 @@ def test_cli_set_mode_option_a_delete_operation(tmp_path):
 
 
 def test_cli_set_mode_option_b_directory_as_arg(tmp_path, freeze_date):
-    """main(): --set with a directory as arg"""
+    """main(): set with a directory as arg"""
     (tmp_path / "photo.jpg").write_text("fake image content")
 
     mock_out = StringIO()
     with (
-        patch("sys.stdin.isatty", return_value=True),
         patch("sys.stdout", new=mock_out),
         patch(
             "sys.argv",
             [
                 "ls-sql",
-                "--set",
+                "set",
+                str(tmp_path),
+                "--tags",
                 "my-custom-tag:colour=green;blue",
                 "--commit",
-                "--target",
-                str(tmp_path),
             ],
         ),
         pytest.raises(SystemExit) as exc,
@@ -332,22 +345,21 @@ def test_cli_set_mode_option_b_directory_as_arg(tmp_path, freeze_date):
 
 
 def test_cli_set_mode_option_b_filename_as_arg(tmp_path, freeze_date):
-    """main(): --set with a filename as arg"""
+    """main(): set with a filename as arg"""
     (tmp_path / "photo.jpg").write_text("fake image content")
 
     mock_out = StringIO()
     with (
-        patch("sys.stdin.isatty", return_value=True),
         patch("sys.stdout", new=mock_out),
         patch(
             "sys.argv",
             [
                 "ls-sql",
-                "--set",
+                "set",
+                str(tmp_path / "photo.jpg"),
+                "--tags",
                 "my-custom-tag:colour=green;blue",
                 "--commit",
-                "--target",
-                str(tmp_path / "photo.jpg"),
             ],
         ),
         pytest.raises(SystemExit) as exc,
@@ -362,13 +374,13 @@ def test_cli_set_mode_option_b_filename_as_arg(tmp_path, freeze_date):
     assert "my-custom-tag:colour=blue;green" in str(marked)
 
 
-def test_cli_set_mode_option_b_no_set_arg(tmp_path, freeze_date):
+def test_cli_set_mode_option_b_no_tags_arg(tmp_path, freeze_date):
+    """main(): set without --tags errors and exits 1."""
     (tmp_path / "photo.jpg").write_text("fake image content")
 
     with (
-        patch("sys.stdin.isatty", return_value=True),
         patch("sys.stdout", new_callable=StringIO),
-        patch("sys.argv", ["ls-sql", "--set", str(tmp_path)]),
+        patch("sys.argv", ["ls-sql", "set", str(tmp_path)]),
         pytest.raises(SystemExit) as exc,
     ):
         main()
@@ -380,16 +392,15 @@ def test_cli_set_mode_option_b_implicit_dry_run(tmp_path, freeze_date):
     (tmp_path / "photo.jpg").write_text("fake image content")
 
     with (
-        patch("sys.stdin.isatty", return_value=True),
         patch("sys.stdout", new_callable=StringIO) as mock_out,
         patch(
             "sys.argv",
             [
                 "ls-sql",
-                "--set",
-                "my-custom-tag:colour=green;blue",
-                "--target",
+                "set",
                 str(tmp_path),
+                "--tags",
+                "my-custom-tag:colour=green;blue",
             ],
         ),
         pytest.raises(SystemExit) as exc,
@@ -405,17 +416,16 @@ def test_cli_set_mode_option_b_explicit_dry_run(tmp_path, freeze_date):
     (tmp_path / "photo.jpg").write_text("fake image content")
 
     with (
-        patch("sys.stdin.isatty", return_value=True),
         patch("sys.stdout", new_callable=StringIO) as mock_out,
         patch(
             "sys.argv",
             [
                 "ls-sql",
-                "--set",
+                "set",
+                str(tmp_path),
+                "--tags",
                 "my-custom-tag:colour=green;blue",
                 "--dry-run",
-                "--target",
-                str(tmp_path),
             ],
         ),
         pytest.raises(SystemExit) as exc,
@@ -428,21 +438,20 @@ def test_cli_set_mode_option_b_explicit_dry_run(tmp_path, freeze_date):
 
 
 def test_cli_set_mode_option_b_overwrite(tmp_path, freeze_date):
-    """subprocess: --set with = overwrite operation"""
+    """subprocess: set with = overwrite operation"""
     (tmp_path / "photo.jpg").write_text("fake image content")
 
     with (
-        patch("sys.stdin.isatty", return_value=True),
         patch("sys.stdout", new_callable=StringIO) as mock_out,
         patch(
             "sys.argv",
             [
                 "ls-sql",
-                "--set",
+                "set",
+                str(tmp_path),
+                "--tags",
                 "my-custom-tag:colour=green;blue",  # = overwrite operation
                 "--commit",
-                "--target",
-                str(tmp_path),
             ],
         ),
         pytest.raises(SystemExit) as exc,
@@ -456,21 +465,20 @@ def test_cli_set_mode_option_b_overwrite(tmp_path, freeze_date):
 
 
 def test_cli_set_mode_option_b_append(tmp_path, freeze_date):
-    """subprocess: --set with += append operation"""
+    """subprocess: set with += append operation"""
     (tmp_path / "photo.jpg").write_text("fake image content")
 
     with (
-        patch("sys.stdin.isatty", return_value=True),
         patch("sys.stdout", new_callable=StringIO),
         patch(
             "sys.argv",
             [
                 "ls-sql",
-                "--set",
+                "set",
+                str(tmp_path / "photo.jpg"),
+                "--tags",
                 "my-custom-tag:colour=blue",
                 "--commit",
-                "--target",
-                str(tmp_path / "photo.jpg"),
             ],
         ),
         pytest.raises(SystemExit),
@@ -478,17 +486,16 @@ def test_cli_set_mode_option_b_append(tmp_path, freeze_date):
         main()
 
     with (
-        patch("sys.stdin.isatty", return_value=True),
         patch("sys.stdout", new_callable=StringIO) as mock_out,
         patch(
             "sys.argv",
             [
                 "ls-sql",
-                "--set",
+                "set",
+                str(tmp_path),
+                "--tags",
                 "my-custom-tag:colour+=red;blue;blue;green",  # += append operation
                 "--commit",
-                "--target",
-                str(tmp_path),
             ],
         ),
         pytest.raises(SystemExit) as exc,
@@ -501,21 +508,20 @@ def test_cli_set_mode_option_b_append(tmp_path, freeze_date):
 
 
 def test_cli_set_mode_option_b_remove(tmp_path, freeze_date):
-    """subprocess: --set with -= remove operation"""
+    """subprocess: set with -= remove operation"""
     (tmp_path / "photo.jpg").write_text("fake image content")
 
     with (
-        patch("sys.stdin.isatty", return_value=True),
         patch("sys.stdout", new_callable=StringIO),
         patch(
             "sys.argv",
             [
                 "ls-sql",
-                "--set",
+                "set",
+                str(tmp_path / "photo.jpg"),
+                "--tags",
                 "my-custom-tag:colour=blue;green;red",
                 "--commit",
-                "--target",
-                str(tmp_path / "photo.jpg"),
             ],
         ),
         pytest.raises(SystemExit),
@@ -523,17 +529,16 @@ def test_cli_set_mode_option_b_remove(tmp_path, freeze_date):
         main()
 
     with (
-        patch("sys.stdin.isatty", return_value=True),
         patch("sys.stdout", new_callable=StringIO) as mock_out,
         patch(
             "sys.argv",
             [
                 "ls-sql",
-                "--set",
+                "set",
+                str(tmp_path),
+                "--tags",
                 "my-custom-tag:colour-=green",  # -= remove operation
                 "--commit",
-                "--target",
-                str(tmp_path),
             ],
         ),
         pytest.raises(SystemExit) as exc,
@@ -546,21 +551,20 @@ def test_cli_set_mode_option_b_remove(tmp_path, freeze_date):
 
 
 def test_cli_set_mode_option_b_delete(tmp_path, freeze_date):
-    """subprocess: --set with == delete operation"""
+    """subprocess: set with == delete operation"""
     (tmp_path / "photo.jpg").write_text("fake image content")
 
     with (
-        patch("sys.stdin.isatty", return_value=True),
         patch("sys.stdout", new_callable=StringIO),
         patch(
             "sys.argv",
             [
                 "ls-sql",
-                "--set",
+                "set",
+                str(tmp_path / "photo.jpg"),
+                "--tags",
                 "my-custom-tag:colour=blue;green;red",
                 "--commit",
-                "--target",
-                str(tmp_path / "photo.jpg"),
             ],
         ),
         pytest.raises(SystemExit),
@@ -568,17 +572,16 @@ def test_cli_set_mode_option_b_delete(tmp_path, freeze_date):
         main()
 
     with (
-        patch("sys.stdin.isatty", return_value=True),
         patch("sys.stdout", new_callable=StringIO) as mock_out,
         patch(
             "sys.argv",
             [
                 "ls-sql",
-                "--set",
+                "set",
+                str(tmp_path),
+                "--tags",
                 "my-custom-tag:colour==",  # == delete operation
                 "--commit",
-                "--target",
-                str(tmp_path),
             ],
         ),
         pytest.raises(SystemExit) as exc,
@@ -593,17 +596,14 @@ def test_cli_set_mode_option_b_delete(tmp_path, freeze_date):
 
 
 def test_cli_set_mode_option_b_directory_containing_hidden_files(tmp_path, freeze_date):
-    """main(): --set with a directory as arg"""
+    """main(): set with a directory as arg"""
     (tmp_path / "aaa.jpg").write_text("fake content")
     (tmp_path / "bbb.jpg").write_text("fake content")
     (tmp_path / "ccc.jpg").write_text("fake content")
 
     with (
-        patch("sys.stdin.isatty", return_value=True),
         patch("sys.stdout", new_callable=StringIO) as mock_out,
-        patch(
-            "sys.argv", ["ls-sql", "--harvest", "--commit", "--target", str(tmp_path)]
-        ),
+        patch("sys.argv", ["ls-sql", "harvest", str(tmp_path), "--commit"]),
         pytest.raises(SystemExit) as exc,
     ):
         main()
@@ -624,17 +624,16 @@ def test_cli_set_mode_option_b_directory_containing_hidden_files(tmp_path, freez
     files[2].rename(files[2].parent / ("." + files[2].stem))
 
     with (
-        patch("sys.stdin.isatty", return_value=True),
         patch("sys.stdout", new_callable=StringIO) as mock_out,
         patch(
             "sys.argv",
             [
                 "ls-sql",
-                "--set",
+                "set",
+                str(tmp_path),
+                "--tags",
                 "my-custom-tag:colour=red;blue;green",
                 "--commit",
-                "--target",
-                str(tmp_path),
             ],
         ),
         pytest.raises(SystemExit) as exc,
@@ -647,15 +646,12 @@ def test_cli_set_mode_option_b_directory_containing_hidden_files(tmp_path, freez
 
 
 def test_cli_set_mode_option_b_hidden_filename_with_extension(tmp_path, freeze_date):
-    """main(): --set with a hidden filename WITH extension as arg"""
+    """main(): set with a hidden filename WITH extension as arg"""
     (tmp_path / "bbb.jpg").write_text("fake content")
 
     with (
-        patch("sys.stdin.isatty", return_value=True),
         patch("sys.stdout", new_callable=StringIO) as mock_out,
-        patch(
-            "sys.argv", ["ls-sql", "--harvest", "--commit", "--target", str(tmp_path)]
-        ),
+        patch("sys.argv", ["ls-sql", "harvest", str(tmp_path), "--commit"]),
         pytest.raises(SystemExit) as exc,
     ):
         main()
@@ -668,17 +664,16 @@ def test_cli_set_mode_option_b_hidden_filename_with_extension(tmp_path, freeze_d
     marked = marked.rename(marked.parent / ("." + marked.stem + marked.suffix))
 
     with (
-        patch("sys.stdin.isatty", return_value=True),
         patch("sys.stdout", new_callable=StringIO) as mock_out,
         patch(
             "sys.argv",
             [
                 "ls-sql",
-                "--set",
+                "set",
+                str(marked),
+                "--tags",
                 "my-custom-tag:colour=red;blue;green",
                 "--commit",
-                "--target",
-                str(marked),
             ],
         ),
         pytest.raises(SystemExit) as exc,
@@ -690,15 +685,12 @@ def test_cli_set_mode_option_b_hidden_filename_with_extension(tmp_path, freeze_d
 
 
 def test_cli_set_mode_option_b_hidden_filename_without_extension(tmp_path, freeze_date):
-    """main(): --set with a hidden filename WITHOUT extension as arg"""
+    """main(): set with a hidden filename WITHOUT extension as arg"""
     (tmp_path / "ccc.jpg").write_text("fake content")
 
     with (
-        patch("sys.stdin.isatty", return_value=True),
         patch("sys.stdout", new_callable=StringIO) as mock_out,
-        patch(
-            "sys.argv", ["ls-sql", "--harvest", "--commit", "--target", str(tmp_path)]
-        ),
+        patch("sys.argv", ["ls-sql", "harvest", str(tmp_path), "--commit"]),
         pytest.raises(SystemExit) as exc,
     ):
         main()
@@ -712,17 +704,16 @@ def test_cli_set_mode_option_b_hidden_filename_without_extension(tmp_path, freez
     print(marked)
 
     with (
-        patch("sys.stdin.isatty", return_value=True),
         patch("sys.stdout", new_callable=StringIO) as mock_out,
         patch(
             "sys.argv",
             [
                 "ls-sql",
-                "--set",
+                "set",
+                str(marked),
+                "--tags",
                 "my-custom-tag:colour=red;blue;green",
                 "--commit",
-                "--target",
-                str(marked),
             ],
         ),
         pytest.raises(SystemExit) as exc,
@@ -743,13 +734,12 @@ def _harvest_file(tmp_path, filename, content="fake content", freeze=None):
     """
     (tmp_path / filename).write_text(content)
 
-    argv = ["ls-sql", "--harvest", "--commit", "--target", str(tmp_path)]
-    ctx = [
-        patch("sys.stdin.isatty", return_value=True),
+    argv = ["ls-sql", "harvest", str(tmp_path), "--commit"]
+    with (
         patch("sys.stdout", new_callable=StringIO),
         patch("sys.argv", argv),
-    ]
-    with ctx[0], ctx[1], ctx[2], pytest.raises(SystemExit):
+        pytest.raises(SystemExit),
+    ):
         main()
 
     # return the renamed file (only one jpg in tmp_path)
@@ -785,18 +775,17 @@ def test_set_fh_dry_run_matches_file(tmp_path, freeze_date):
     fh = _extract_fh(harvested)
 
     with (
-        patch("sys.stdin.isatty", return_value=True),
         patch("sys.stdout", new_callable=StringIO) as mock_out,
         patch(
             "sys.argv",
             [
                 "ls-sql",
-                "--set",
+                "set",
+                str(tmp_path),
+                "--tags",
                 "ud:tag=hello",
                 "--fh",
                 fh[:8],
-                "--target",
-                str(tmp_path),
             ],
         ),
         pytest.raises(SystemExit) as exc,
@@ -817,19 +806,18 @@ def test_set_fh_commit_renames_file(tmp_path, freeze_date):
     fh = _extract_fh(harvested)
 
     with (
-        patch("sys.stdin.isatty", return_value=True),
         patch("sys.stdout", new_callable=StringIO) as mock_out,
         patch(
             "sys.argv",
             [
                 "ls-sql",
-                "--set",
+                "set",
+                str(tmp_path),
+                "--tags",
                 "ud:greeting=hello",
                 "--fh",
                 fh[:8],
                 "--commit",
-                "--target",
-                str(tmp_path),
             ],
         ),
         pytest.raises(SystemExit) as exc,
@@ -849,19 +837,18 @@ def test_set_fh_no_match_exits_one(tmp_path, freeze_date):
     _harvest_file(tmp_path, "photo.jpg", freeze=freeze_date)
 
     with (
-        patch("sys.stdin.isatty", return_value=True),
         patch("sys.stdout", new_callable=StringIO),
         patch("sys.stderr", new_callable=StringIO) as mock_err,
         patch(
             "sys.argv",
             [
                 "ls-sql",
-                "--set",
+                "set",
+                str(tmp_path),
+                "--tags",
                 "ud:greeting=hello",
                 "--fh",
                 "00000000",
-                "--target",
-                str(tmp_path),
             ],
         ),
         pytest.raises(SystemExit) as exc,
@@ -884,19 +871,18 @@ def test_set_fh_prefix_matches_correct_file(tmp_path, freeze_date):
     fh_alpha = _extract_fh(h1)
 
     with (
-        patch("sys.stdin.isatty", return_value=True),
         patch("sys.stdout", new_callable=StringIO) as mock_out,
         patch(
             "sys.argv",
             [
                 "ls-sql",
-                "--set",
+                "set",
+                str(tmp_path),
+                "--tags",
                 "ud:label=alpha-only",
                 "--fh",
                 fh_alpha[:8],
                 "--commit",
-                "--target",
-                str(tmp_path),
             ],
         ),
         pytest.raises(SystemExit) as exc,

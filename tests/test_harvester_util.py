@@ -4,7 +4,10 @@
 # https://github.com/east-van-ai
 # ==============================================
 
+from collections.abc import Generator
+
 import pytest
+
 from src.lssql.harvester_util import (
     is_already_harvested,
     is_troublesome_name,
@@ -27,27 +30,27 @@ def test_already_harvested_plain_filename():
     assert is_already_harvested("photo.jpg") is False
 
 
-def _caret_filenames(max_carets: int = 15, prefix: str = ""):
+def _caret_filenames(max_carets: int = 15, prefix: str = "") -> Generator[str]:
     """
-    Yield filenames of the form ``<prefix><caret‑string>.jpg``.
+    Yield filenames of the form ``<prefix><caret-string>.jpg``.
 
-    * ``max_carets`` – maximum number of ^ characters (inclusive).
-    * ``prefix``    – optional string that appears before the carets.
+    * ``max_carets`` - maximum number of ^ characters (inclusive).
+    * ``prefix``     - optional string that appears before the carets.
     """
     for n in range(1, max_carets + 1):
         yield f"{prefix}{'^' * n}.jpg"
 
 
-@pytest.mark.parametrize("filename", _caret_filenames(prefix=""))
+@pytest.mark.parametrize("filename", list(_caret_filenames(prefix="")))
 def test_carets_only_without_prefix_without_postfix(filename):
-    """A caret‑only filename must be reported as *not* harvested."""
+    """A caret-only filename must be reported as *not* harvested."""
     assert is_already_harvested("^^^.jpg") is False
     assert not is_already_harvested(filename)
 
 
-@pytest.mark.parametrize("filename", _caret_filenames(prefix="img_"))
+@pytest.mark.parametrize("filename", list(_caret_filenames(prefix="img_")))
 def test_carets_only_with_prefix_without_postfix(filename):
-    """A prefixed caret‑only filename must be reported as *not* harvested."""
+    """A prefixed caret-only filename must be reported as *not* harvested."""
     assert is_already_harvested("img_^^^.jpg") is False
     assert not is_already_harvested(filename)
 
