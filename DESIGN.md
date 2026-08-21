@@ -1,74 +1,5 @@
 # ls-sql design & specification
 
-## Table of Contents
-
-- [ls-sql design & specification](#ls-sql-design--specification)
-  - [Table of Contents](#table-of-contents)
-  - [Hatfile](#hatfile)
-  - [ls-sql Architecture](#ls-sql-architecture)
-  - [Filename specification](#filename-specification)
-    - [Hatfile metadata and boundary](#hatfile-metadata-and-boundary)
-    - [Tagged key-value format](#tagged-key-value-format)
-    - [Character budget](#character-budget)
-  - [Tag namespaces](#tag-namespaces)
-    - [Namespace rules](#namespace-rules)
-    - [Tag reference](#tag-reference)
-    - [Note on name hash](#note-on-name-hash)
-  - [Album system](#album-system)
-    - [Multi select list](#multi-select-list)
-  - [Configuration](#configuration)
-  - [CLI reference](#cli-reference)
-    - [CLI grammar](#cli-grammar)
-    - [Positions are decided, not inferred](#positions-are-decided-not-inferred)
-    - [Piped is a file type, not the absence of a terminal](#piped-is-a-file-type-not-the-absence-of-a-terminal)
-    - [A pipe cannot be an error here](#a-pipe-cannot-be-an-error-here)
-    - [List mode](#list-mode)
-    - [Harvest mode](#harvest-mode)
-    - [Reset mode](#reset-mode)
-    - [Set mode](#set-mode)
-      - [Operators](#operators)
-      - [Operator rules](#operator-rules)
-      - [Harvest-first](#harvest-first)
-      - [`--fh` flag](#--fh-flag)
-    - [Flag rules](#flag-rules)
-  - [Output style](#output-style)
-    - [Rename previews](#rename-previews)
-  - [Implementation](#implementation)
-    - [Language](#language)
-    - [Key dependencies](#key-dependencies)
-    - [Performance targets](#performance-targets)
-    - [Packaging](#packaging)
-  - [What ls-sql does](#what-ls-sql-does)
-  - [Edge cases](#edge-cases)
-  - [When to stop using ls-sql](#when-to-stop-using-ls-sql)
-  - [Out of scope](#out-of-scope)
-  - [Granular Details](#granular-details)
-    - [`list` mode](#list-mode-1)
-    - [`harvest` mode](#harvest-mode-1)
-    - [`reset` mode](#reset-mode-1)
-    - [`verify` mode](#verify-mode)
-    - [EXIF files (`ex:`)](#exif-files-ex)
-    - [Audio files (`au:`)](#audio-files-au)
-    - [ZIP files (`zi:`)](#zip-files-zi)
-      - [Example](#example)
-      - [Query examples](#query-examples)
-    - [Stable Diffusion (`sd:`)](#stable-diffusion-sd)
-    - [User Defined (`ud:`)](#user-defined-ud)
-      - [Album system and `ud:` tags](#album-system-and-ud-tags)
-        - [How it works](#how-it-works)
-        - [Album example](#album-example)
-        - [Album rules](#album-rules)
-      - [Repurpose Album tags for multi select list](#repurpose-album-tags-for-multi-select-list)
-    - [Duplicate detection](#duplicate-detection)
-    - [`set` mode](#set-mode-1)
-      - [Tag manipulation logic](#tag-manipulation-logic)
-      - [Multi-value separator](#multi-value-separator)
-      - [Protected namespaces](#protected-namespaces)
-      - [Piping into `set`](#piping-into-set)
-      - [Implementation note](#implementation-note)
-
----
-
 ## Hatfile
 
 A Hatfile is a plain filename that carries structured metadata.
@@ -85,8 +16,6 @@ IMAGE-1234567890^^^ls:hd=20260428^ls:fh=03754271b00a0e1c^ls:dw=512^ls:dh=768^ex:
 Disposable and rebuildable. The file is the record.
 
 See [HATFILE.md](HATFILE.md)
-
----
 
 ## ls-sql Architecture
 
@@ -108,8 +37,6 @@ The filesystem is the only source of truth. There is no database to maintain,
 no cache to invalidate, no records to go stale. Everything ls-sql knows lives
 in filenames.
 
----
-
 ## Filename specification
 
 ### Hatfile metadata and boundary
@@ -121,11 +48,11 @@ This is the Hatfile standard. It is not configurable.
 {original_filename}^^^{Hatfile_metadata}^^^{human_comment}.{ext}
 ```
 
-- Left of first `^^^` -- original filename, never modified
-- Middle -- tagged key-value pairs
-- Right of second `^^^` -- free human comment, optional
-- The trailing `^^^` is always present, even without a comment
-- Target: under 200 characters total
+- Left of the first `^^^` sits the original filename, never modified.
+- Between the boundaries sit the tagged key-value pairs.
+- Right of the second `^^^` sits a free human comment, and it is optional.
+- The trailing `^^^` is always present, even without a comment.
+- Aim to keep the whole name under 200 characters.
 
 ### Tagged key-value format
 
@@ -145,8 +72,6 @@ Tagged metadata:      ~80 chars     (reasonable field set)
 Human comment:        ~80 chars     remaining budget
 Total target:        <200 chars     well within macOS 255 byte limit
 ```
-
----
 
 ## Tag namespaces
 
@@ -169,7 +94,7 @@ because they appear in filenames and character budget matters.
 - `ud:` is the blessed user namespace for simple custom tags.
 - Use 1-letter or 3-letter+ namespaces for your own structured extensions
   (e.g. `myapp:key=value`).
-- Use a 2-letter namespace and you are on your own -- harvest will overwrite.
+- Use a 2-letter namespace and you are on your own, since harvest will overwrite it.
 
 ### Tag reference
 
@@ -213,10 +138,8 @@ ud:*     Anything that does not overlap with ls-sql native tags
 ### Note on name hash
 
 There is no filename hash tag. You cannot take a hash of a filename that
-already contains a hash -- the result would never match anything on rebuild.
+already contains a hash. The result would never match anything on rebuild.
 The file content hash (`ls:fh`) is the stable fingerprint. That is enough.
-
----
 
 ## Album system
 
@@ -229,18 +152,14 @@ structure. No database.
 
 [See Granular Details.](#repurpose-album-tags-for-multi-select-list)
 
----
-
 ## Configuration
 
 There is no configuration file. ls-sql runs on hardcoded defaults, and every
 knob it has is a command-line flag.
 
-- Harvest boundary: `^^^` -- the Hatfile standard, not configurable
+- Harvest boundary: `^^^`, which is the Hatfile standard and not configurable
 - Max filename length: 200 characters
 - Fields harvested: all available for the file type
-
----
 
 ## CLI reference
 
@@ -272,10 +191,10 @@ ls-sql <command> PATH [options]
   other argument is present the user has asked for something specific, and
   answering a wrong request with help text would hide the mistake.
 - **Neither help path looks at `isatty()`.** What was typed decides the
-  answer, not how the process was launched. Gating help on a terminal made
-  `ls-sql harvest` exit 0 from a shell and 1 under `nohup`, cron, or an editor,
-  on identical input. The cost is accepted: a scheduled command that loses its
-  path argument prints help and exits 0 rather than failing loudly.
+  answer, not how the process was launched. Gating help on a terminal would
+  make `ls-sql harvest` exit 0 from a shell and 1 under `nohup`, cron, or an
+  editor, on identical input. The cost is accepted: a scheduled command that
+  loses its path argument prints help and exits 0 rather than failing loudly.
 - **Piped mode is the exception, and it is the product.** A bare `ls-sql` with
   content on stdin enters passthrough parse mode before argparse runs: read
   paths from stdin, parse the Hatfile names, print full paths, exit 0. Unlike
@@ -293,10 +212,29 @@ ls-sql <command> PATH [options]
          ls <dir> | ls-sql
   ```
 
+  **Every** means every, including an error where the command line was read
+  fine and something the run needed was not there: a path that does not exist,
+  a `--query` that will not parse, an `--fh` that matched no file. The usage
+  line adds nothing a reader of those needs. It is printed anyway, because
+  error output is a contract. One error printing a single line where its
+  neighbour prints three reads as a missing print statement rather than as a
+  signal, and a reader who has to work out which one it is has been handed a
+  puzzle instead of an answer. Uniform output is worth more than the saved
+  noise.
+
+  `verify` is not an exception to this. Its exit 1 is a result rather than an
+  error, so it carries neither the prefix nor the usage line.
+
 - **Exit codes.** `0` success; `1` every ls-sql-generated error, and `verify`
-  when changed content is found (a semantic result, not an error -- the
-  message carries no `ls-sql:` prefix); `2` is reserved for argparse's own
+  when changed content is found (a semantic result rather than an
+  error, so the message carries no `ls-sql:` prefix); `2` is reserved for argparse's own
   errors (unknown command, unknown flag, missing value).
+
+  Only `0` and `1` ever come back from `main()`. Argparse hardcodes `2` inside
+  `ArgumentParser.error()`, which calls `sys.exit()` itself, so that code
+  unwinds past `main()` rather than returning through it. Nothing on argparse's
+  public surface names the number or lets it be set, so `2` is a code to assert
+  against, never one to produce.
 
 ### Positions are decided, not inferred
 
@@ -316,6 +254,22 @@ and does not guess whether a stray word looks like one.
 The command word gets the same treatment for the same reason. argparse resolves
 which token is the positional correctly, whatever the interleaving, so a flag
 came first exactly when that token is not `sys.argv[1]`.
+
+### main() returns a code, it does not exit
+
+`main()` computes an exit code and returns it. The only `sys.exit()` in the
+package is the one wrapping the call, and setuptools already writes that for
+the installed `ls-sql` entry point.
+
+The gain is in testing. A returned code is a value a test reads directly, where
+`sys.exit()` forces every caller, tests included, to catch a `SystemExit` and
+dig the code out of it. Command modules already worked this way and returned
+their codes up to the dispatch; `main()` now does the same thing one level up.
+
+The cost is a call site that forgets to `return`. An error helper that prints
+and returns a code, called without `return` in front of it, turns a failure
+into a silent success. Every helper here is named for what it reports rather
+than for ending the process, which is why `_die()` is gone.
 
 ### Piped is a file type, not the absence of a terminal
 
@@ -413,6 +367,18 @@ ls-sql harvest . --commit --ext jpg,png  # filter by extension
 ls-sql harvest . --commit --max 50       # limit files per run
 ```
 
+#### `--max` counts what it actions
+
+`--max N` caps how many files a run harvests. A file that is skipped, for an
+extension outside the filter or for a name that carries tags already, is
+reported but does not count against N.
+
+The cap holds across the whole walk. It is not a per-directory budget, so a
+recursive run renames at most N files no matter how the tree is shaped.
+
+Which files a capped run picks is a separate question, and an open one:
+`os.scandir` does not promise an order and ls-sql does not impose one.
+
 ### Reset mode
 
 ```bash
@@ -480,7 +446,8 @@ applies the tag. The user does not need to run `harvest` first.
 #### `--fh` flag
 
 Select files by content hash. Comma-separated list of 16-char SHA256 prefixes.
-Hash does not change when the filename changes -- stable selector across renames.
+Hash does not change when the filename changes, so it stays a stable selector
+across renames.
 
 ```bash
 ls-sql set ~/photos --tags "ud:album=london" --fh "ab2c3d4e5f,9fs7g1h2i3" --commit
@@ -494,32 +461,30 @@ Matches any harvested file whose `ls:fh` value starts with the given prefix.
   the command acts on, and it sits right after the command word.
 - `harvest` without `--dry-run` or `--commit` defaults to `--dry-run`. Safe always.
 - `-R` is recursive, same as `ls -R`.
-- `--ext` overrules whitelisted extensions -- jpg, jpeg, png, gif, webp, mp3, m4a, zip, cbz.
-- `--query` filters `list` output. `FROM` clause is omitted -- there is only one
-  thing to query.
+- `--ext` overrules the whitelisted extensions: jpg, jpeg, png, gif, webp, mp3, m4a, zip, cbz.
+- `--query` filters `list` output. The `FROM` clause is omitted, because there is
+  only one thing to query.
 - `reset` strips everything between the first and second `^^^`. The human
   comment right of the second `^^^` is preserved. Fully reversible.
-- `list` output is clean path-per-line with no summary line -- pipeable
-  into any Unix tool as-is. There is no `--quiet`; there is nothing to silence.
+- `list` output is a clean path per line with no summary, so it pipes into any
+  Unix tool as-is. There is no `--quiet`; there is nothing to silence.
 - `set` without `--commit` is dry-run. Safe always.
 - `--fh` belongs to `set`. It is a file selector, not a query.
-
----
 
 ## Output style
 
 Output prints full path, pipeable, composable result.
 
 ```text
-/Users/go/SD/outputs/00234^^^sd:mn=sdxl^ls:fh=a3f2c8f91b^^^.png
-/Users/go/SD/outputs/00891^^^sd:mn=flux^ls:fh=9b1d4e72ac^^^dog-in-tuxedo.png
+/Users/go/photos/00234^^^ls:hd=20260503^ls:fh=a3f2c8f91b^ls:dw=512^ls:dh=768^^^.png
+/Users/go/photos/00891^^^ls:hd=20260503^ls:fh=9b1d4e72ac^ls:dw=1024^ls:dh=1024^^^dog-in-tuxedo.png
 ```
 
 Pipe it anywhere:
 
 ```bash
-ls-sql list . -R | grep "euler-a"
-ls-sql list . --query "SELECT * WHERE sd:mn='flux'" | wc -l
+ls-sql list . -R | grep "dog-in-tuxedo"
+ls-sql list . --query "SELECT * WHERE ls:dw='512'" | wc -l
 ls-sql list . | awk '{print $1}' | xargs open
 ```
 
@@ -554,8 +519,6 @@ that nothing on disk moved.
 and `skipped` against stored hashes, has no rename to preview, and carries its
 own summary line. Different question, different output.
 
----
-
 ## Implementation
 
 ### Language
@@ -575,6 +538,59 @@ os.scandir()    fast directory traversal (stdlib)
 
 No database dependency. No ORM. No migration files.
 
+#### Dependencies are floors, not pins
+
+`[project] dependencies` lists the three packages ls-sql imports, with lower
+bounds and no upper caps. A floor is a claim the project can stand behind,
+being the version ls-sql was last tested against. A cap would be a claim about
+releases that do not exist yet, and that guess strands users on the day Pillow
+ships a fine new version.
+
+Exact pins carry a second cost. `pillow==12.2.0` is not a fact about ls-sql. It
+collides with every other project in a shared environment that wants a
+different Pillow, and it rots once there is no wheel for a new Python.
+
+Reproducibility is a separate problem and wants a separate file. If a release
+ever needs byte-identical installs, that is a lock or constraints file applied
+at install time, never a permanently narrowed `dependencies`.
+
+#### Both requirements files go away
+
+There is no `requirements.txt` and no `requirements-dev.txt`. `pyproject.toml`
+holds runtime packages in `[project] dependencies` and dev tooling in
+`[dependency-groups]`. One file, two tables, nothing to keep in sync by hand.
+
+The runtime pair had already drifted, with `pyproject.toml` carrying exact
+versions and `requirements.txt` carrying bare names. Nothing checked one
+against the other, because nothing can. Two files answering one question is how
+that happens.
+
+The dev file went for a different reason. ls-sql is installed with `pipx` and
+run, not cloned and contributed to. A requirements file is onboarding
+scaffolding for a contributor who does not exist here, and it earns its keep
+only in a project that expects one.
+
+Install everything with a single command:
+
+```bash
+pip install -e . --group dev
+```
+
+Dev tooling goes in `[dependency-groups]` rather than
+`[project.optional-dependencies]`. Extras are published metadata: they land in
+the wheel, appear on PyPI, and turn `pip install ls-sql[dev]` into a supported
+offer. Dev tooling is a fact about the working copy, not about the installed
+artifact. Dependency groups stay local and never ship, which is the honest
+description of what `ruff` and `black` are to this project.
+
+`--group` needs pip 25.1 or newer. Both the local venv and CI run well past
+that, and CI upgrades pip before installing anything.
+
+The dev pins stay exact while the runtime floors do not, and the asymmetry is
+deliberate. A pinned `ruff` freezes a rule set, so local and CI agree on what
+counts as a lint failure. `pytest` has no rule set to freeze and stays
+unpinned.
+
 ### Performance targets
 
 - Directory scan 100k files: under 1 second (`os.scandir`)
@@ -586,14 +602,38 @@ No database dependency. No ORM. No migration files.
 ```toml
 [project]
 name = "ls-sql"
-version = "1.1.0"
+description = "A pipeable extension of ls with SQL querying and file metadata harvesting."
+readme = "README.md"
+authors = [{ name = "East Van AI", email = "east-van-ai@proton.me" }]
 requires-python = ">=3.14"
+license = "MIT"
+license-files = ["LICENSE"]
+dependencies = ["mutagen>=1.47.0", "piexif>=1.1.3", "pillow>=12.2.0"]
 
 [project.scripts]
 ls-sql = "lssql.cli:main"
+
+[dependency-groups]
+dev = ["black==26.5.1", "pytest", "pytest-cov", "ruff==0.16.0"]
+
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
 ```
 
----
+`version` is omitted above on purpose. A version number copied into this
+document goes stale the moment the next release ships, and this one had already
+drifted three releases behind.
+
+The setuptools floor is 77 because of PEP 639. The SPDX `license` string and
+`license-files` are rejected by older setuptools, which still expects
+`license = {text = "MIT"}`.
+
+The `packages.find` block is what makes the src layout explicit rather than
+inferred, so a stray top-level directory can never turn into a shipped package.
 
 ## What ls-sql does
 
@@ -607,18 +647,53 @@ ls-sql = "lssql.cli:main"
 That list is the whole tool. Anything not described in this document is not
 implemented, however reasonable it sounds.
 
----
-
 ## Edge cases
 
 When in doubt, warn and skip. Never guess.
 
-- **`^^^` already in original stem** -- harvester skips and warns.
-- **Filename exceeds 200 chars** -- harvester warns before renaming, skips file.
-- **File already harvested** -- harvester detects `^^^` and skips. Idempotent.
-- **Duplicate files** -- `ls:fh` catches identical content regardless of filename.
+- **Malformed caret runs.** The stem is not a Hatfile. See below.
+- **Filename exceeds 200 chars.** The harvester warns before renaming, then
+  skips the file.
+- **File already harvested.** The harvester sees `^^^` and skips. Idempotent.
+- **Duplicate files.** `ls:fh` catches identical content whatever the filename.
 
----
+### What counts as a Hatfile stem
+
+A stem is a Hatfile stem when every one of these holds:
+
+- it splits into at most three parts on `^^^`
+- the original part holds no `^`
+- the tag part is empty, or splits on `^` into segments that are all non-empty
+- the comment part, when present, holds no `^`
+
+Anything else parses as a plain filename, and the write paths skip it.
+
+The tag part needs a clause of its own because `^` is the tag delimiter there.
+`ls:hd=20260503^ls:fh=03754271b00a0e1c` is well-formed. A leading caret is not,
+because it opens an empty segment.
+
+A run of six carets stays valid. That shape is `original^^^^^^comment`, a
+harvested file with an empty tag section. A rule phrased as "every caret run is
+exactly three" would reject it by accident.
+
+The rule exists because splitting on `^^^` alone loses data. `str.split` is
+greedy from the left, so an odd caret stays glued to the front of the next
+field, and `0001-01234^^^^it-is-blue` reads as tags of `^it-is-blue`. That
+parses as no tags at all, and `set` then overwrites the tag section and drops
+the text:
+
+```text
+0001-01234^^^^it-is-blue.png
+  -> 0001-01234^^^ud:colour=blue^^^.png
+```
+
+`it-is-blue` is gone, and `reset` cannot recover it. The filename is the only
+store this project has, so a name it cannot read confidently is a name it must
+not rewrite.
+
+A tempting alternative is to treat any run of three or more carets as a
+boundary and discard the extras. That guesses, and the guess deletes carets the
+user typed.
 
 ## When to stop using ls-sql
 
@@ -628,8 +703,6 @@ When in doubt, warn and skip. Never guess.
 
 Congratulations. Go get proper gear. 🎣
 
----
-
 ## Out of scope
 
 - Windows. macOS only.
@@ -637,8 +710,6 @@ Congratulations. Go get proper gear. 🎣
 - Real-time file watching. Use periodic harvest or cron.
 - GUI.
 - SQLite. Filenames are the database.
-
----
 
 ## Granular Details
 
@@ -659,12 +730,10 @@ ls-sql list . --query "SELECT * WHERE ls:fh IS NULL"
 Supports `=`, `CONTAINS`, `IS NOT NULL`, `IS NULL`. Output is full path per
 line, pipeable.
 
----
-
 ### `harvest` mode
 
 Read file metadata and encode it as tagged key-value pairs into the filename.
-Dry-run by default. Pass `--commit` to execute. Idempotent -- already harvested
+Dry-run by default. Pass `--commit` to execute. Idempotent: already harvested
 files are skipped.
 
 ```bash
@@ -677,8 +746,6 @@ ls-sql harvest . --commit --max 50
 
 Supports `--ext` to filter by extension, `--max` to limit files per run,
 `-R` for recursive.
-
----
 
 ### `reset` mode
 
@@ -700,16 +767,14 @@ modified during harvest, so restoration is lossless.
 Compare `ls:fh` in filename against current file content hash.
 
 - summary by default, per-file detail with `--verbose`
-- exit code non-zero on any mismatch -- scriptable
+- exit code non-zero on any mismatch, which makes it scriptable
 - read-only, never touches files
-- files without `ls:fh` skipped with reason: no ls:fh -- harvest first
+- files without `ls:fh` skipped with the reason `no ls:fh -- harvest first`
 
 ```bash
 ls-sql verify .
 ls-sql verify ~/photos -R
 ```
-
----
 
 ### EXIF files (`ex:`)
 
@@ -727,8 +792,6 @@ ex:lat   GPS latitude
 ex:lon   GPS longitude
 ```
 
----
-
 ### Audio files (`au:`)
 
 ID3 and audio metadata from MP3 files.
@@ -741,8 +804,6 @@ au:tt    Track title
 au:tn    Track number
 au:yr    Year
 ```
-
----
 
 ### ZIP files (`zi:`)
 
@@ -784,8 +845,6 @@ ls-sql list . --query "SELECT * WHERE zi:ext CONTAINS 'exe'"    # ZIPs with exec
 ls-sql list . --query "SELECT * WHERE zi:cnt IS NOT NULL"       # any harvested ZIP
 ```
 
----
-
 ### Stable Diffusion (`sd:`)
 
 Generation parameters written into PNG metadata by A1111 and compatible tools.
@@ -803,13 +862,9 @@ sd:sd    Seed
 sd:la    LoRA
 ```
 
----
-
 ### User Defined (`ud:`)
 
 Anything that does not overlap with ls-sql native tags.
-
----
 
 #### Album system and `ud:` tags
 
@@ -849,11 +904,9 @@ ls-sql list ~/photos --query "SELECT * WHERE ud:2006-london IS NOT NULL" | sort
 ##### Album rules
 
 - Album name is the `ud:` key. Sequence value is an integer starting at 1.
-- One file can belong to multiple albums -- just add more `ud:` tags.
+- One file can belong to multiple albums. Just add more `ud:` tags.
 - Albums have no metadata of their own. The filename is the record.
 - Sequence gaps are allowed. Order is explicit and human-controlled.
-
----
 
 #### Repurpose Album tags for multi select list
 
@@ -873,17 +926,15 @@ Query by ingredient:
 ls-sql list ~/recipes --query "SELECT * WHERE ud:ingredients CONTAINS 'beef'"
 ```
 
-Same pattern works for tags, moods, colours, keywords -- anything you'd reach
-for a checkbox list. One tag key, comma-separated values, no schema required.
-
----
+The same pattern works for tags, moods, colours, and keywords, or anything else
+you would reach a checkbox list for. One tag key, comma-separated values, no schema required.
 
 ### Duplicate detection
 
 `ls:fh` is the stable content fingerprint. Duplicates share the same hash
 regardless of filename.
 
-Detect duplicates with a one-liner -- no harvester change needed:
+Detect duplicates with a one-liner. No harvester change needed:
 
 ```bash
 ls-sql list . -R --query "SELECT * WHERE ls:fh IS NOT NULL" \
@@ -893,8 +944,6 @@ ls-sql list . -R --query "SELECT * WHERE ls:fh IS NOT NULL" \
 ```
 
 Prints only files that share a hash with at least one other file.
-
----
 
 ### `set` mode
 
@@ -936,7 +985,8 @@ photo^^^ls:hd=20260504^ls:fh=ab2c3d4e5f^^^london.jpg
 #### Multi-value separator
 
 Semicolon `;` is the multi-value separator. Commas are allowed freely in
-values—artist names, album titles, and captions naturally contain commas.
+values, since artist names, album titles, and captions naturally contain
+commas.
 Semicolon is rare enough in metadata to serve as a clean delimiter. Duplicates
 are not allowed, and values are always alphabetically sorted.
 
@@ -978,4 +1028,19 @@ Select with `--fh` or a path, and let dry-run show you what will change.
 `setter.py` mirrors `scanner.py`, `parser.py`, and `query.py`. Plain nouns, no
 prefix. Tag manipulation logic lives there; `cli_set.py` drives it.
 
+## Use of AI
+
+Both the use of AI and its disclosure are deliberate. Code and
+documentation in this project are written in collaboration with
+Artificial Intelligence (AI). The division of labour: the AI explores,
+challenges assumptions and edge cases, and drafts; the human
+initiates, drafts the designs, explores alongside the AI, reviews
+every change, and decides what gets committed.
+
 ---
+
+**East Van AI** · AI for the rest of us! · Vancouver, BC, Canada
+
+[github.com/east-van-ai](https://github.com/east-van-ai) · <east-van-ai@proton.me>
+
+MIT License · Copyright (c) 2026 Go Nakamaru

@@ -1,9 +1,3 @@
-# ==============================================
-# ls-sql -- filesystem query engine
-# East Van AI -- AI for the rest of us!
-# https://github.com/east-van-ai
-# ==============================================
-
 """
 CLI tests for lssql.
 two approaches, both demonstrated intentionally:
@@ -29,8 +23,7 @@ import subprocess
 from io import StringIO
 from unittest.mock import patch
 
-import pytest
-
+from lssql.args import EXIT_OK
 from lssql.cli import main
 from tests.test_cli import _ls_sql_bin, skip_on_ci
 
@@ -61,7 +54,7 @@ def test_cli_verify_mode_option_a_directory_as_arg(tmp_path):
         text=True,
     )
 
-    assert result.returncode == 0
+    assert result.returncode == EXIT_OK
     assert "1 file(s) checked, 0 changed, 0 skipped" in result.stdout
 
 
@@ -89,7 +82,7 @@ def test_cli_verify_mode_option_a_filename_as_arg(tmp_path):
         text=True,
     )
 
-    assert result.returncode == 0
+    assert result.returncode == EXIT_OK
     assert "1 file(s) checked, 0 changed, 0 skipped" in result.stdout
 
 
@@ -105,7 +98,6 @@ def test_cli_verify_mode_option_b_directory_as_arg(tmp_path, freeze_date):
     with (
         patch("sys.stdout", new_callable=StringIO),
         patch("sys.argv", ["ls-sql", "harvest", str(tmp_path), "--commit"]),
-        pytest.raises(SystemExit),
     ):
         main()
 
@@ -115,11 +107,10 @@ def test_cli_verify_mode_option_b_directory_as_arg(tmp_path, freeze_date):
     with (
         patch("sys.stdout", new_callable=StringIO) as mock_out,
         patch("sys.argv", ["ls-sql", "verify", str(tmp_path)]),
-        pytest.raises(SystemExit) as exc,
     ):
-        main()
+        code = main()
 
-    assert exc.value.code == 0
+    assert code == EXIT_OK
     assert "1 file(s) checked, 0 changed, 0 skipped" in mock_out.getvalue()
 
 
@@ -132,7 +123,6 @@ def test_cli_verify_mode_option_b_filename_as_arg(tmp_path, freeze_date):
     with (
         patch("sys.stdout", new_callable=StringIO),
         patch("sys.argv", ["ls-sql", "harvest", str(tmp_path), "--commit"]),
-        pytest.raises(SystemExit),
     ):
         main()
 
@@ -142,11 +132,10 @@ def test_cli_verify_mode_option_b_filename_as_arg(tmp_path, freeze_date):
     with (
         patch("sys.stdout", new_callable=StringIO) as mock_out,
         patch("sys.argv", ["ls-sql", "verify", str(marked)]),
-        pytest.raises(SystemExit) as exc,
     ):
-        main()
+        code = main()
 
-    assert exc.value.code == 0
+    assert code == EXIT_OK
     assert "1 file(s) checked, 0 changed, 0 skipped" in mock_out.getvalue()
 
 
@@ -164,9 +153,8 @@ def test_cli_verify_mode_option_b_directory_containing_hidden_files(
     with (
         patch("sys.stdout", new_callable=StringIO) as mock_out,
         patch("sys.argv", ["ls-sql", "harvest", str(tmp_path), "--commit"]),
-        pytest.raises(SystemExit) as exc,
     ):
-        main()
+        code = main()
 
     # Note: the order may not be [aaa, bbb, ccc]
     files = sorted(tmp_path.glob("???^^^*^^^.jpg"))
@@ -189,11 +177,10 @@ def test_cli_verify_mode_option_b_directory_containing_hidden_files(
             "sys.argv",
             ["ls-sql", "verify", str(tmp_path)],
         ),
-        pytest.raises(SystemExit) as exc,
     ):
-        main()
+        code = main()
 
-    assert exc.value.code == 0
+    assert code == EXIT_OK
     assert "1 file(s) checked, 0 changed, 0 skipped" in mock_out.getvalue()
 
 
@@ -204,9 +191,8 @@ def test_cli_verify_mode_option_b_hidden_filename_with_extension(tmp_path, freez
     with (
         patch("sys.stdout", new_callable=StringIO) as mock_out,
         patch("sys.argv", ["ls-sql", "harvest", str(tmp_path), "--commit"]),
-        pytest.raises(SystemExit) as exc,
     ):
-        main()
+        code = main()
 
     marked = next(tmp_path.glob("bbb^^^*^^^.jpg"))
     assert marked is not None
@@ -221,11 +207,10 @@ def test_cli_verify_mode_option_b_hidden_filename_with_extension(tmp_path, freez
             "sys.argv",
             ["ls-sql", "verify", str(marked)],
         ),
-        pytest.raises(SystemExit) as exc,
     ):
-        main()
+        code = main()
 
-    assert exc.value.code == 0
+    assert code == EXIT_OK
     assert "0 file(s) checked, 0 changed, 0 skipped" in mock_out.getvalue()
 
 
@@ -238,9 +223,8 @@ def test_cli_verify_mode_option_b_hidden_filename_without_extension(
     with (
         patch("sys.stdout", new_callable=StringIO) as mock_out,
         patch("sys.argv", ["ls-sql", "harvest", str(tmp_path), "--commit"]),
-        pytest.raises(SystemExit) as exc,
     ):
-        main()
+        code = main()
 
     marked = next(tmp_path.glob("ccc^^^*^^^.jpg"))
     assert marked is not None
@@ -256,9 +240,8 @@ def test_cli_verify_mode_option_b_hidden_filename_without_extension(
             "sys.argv",
             ["ls-sql", "verify", str(marked)],
         ),
-        pytest.raises(SystemExit) as exc,
     ):
-        main()
+        code = main()
 
-    assert exc.value.code == 0
+    assert code == EXIT_OK
     assert "0 file(s) checked, 0 changed, 0 skipped" in mock_out.getvalue()

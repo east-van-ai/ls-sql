@@ -1,9 +1,3 @@
-# ==============================================
-# ls-sql -- filesystem query engine
-# East Van AI -- AI for the rest of us!
-# https://github.com/east-van-ai
-# ==============================================
-
 from collections.abc import Generator
 
 import pytest
@@ -92,3 +86,29 @@ def test_sanitize_tag_value_replaces_carets():
     assert sanitize_tag_value("AC^DC") == "AC-DC"
     assert sanitize_tag_value("Live^^^Unplugged") == "Live---Unplugged"
     assert sanitize_tag_value("normal value") == "normal value"
+
+
+# -- malformed stems --
+
+
+def test_is_troublesome_name_catches_stray_caret_runs():
+    """A caret run that is not a multiple of three is not a Hatfile stem."""
+    assert is_troublesome_name("0001-01234^^^^it-is-blue.jpg") is True
+    assert is_troublesome_name("0001-01234^^^^^it-is-blue.jpg") is True
+    assert is_troublesome_name("0001-01234^^^^^^^it-is-blue.jpg") is True
+
+
+def test_is_troublesome_name_allows_well_formed_stems():
+    """An empty tag section is six carets, and stays valid."""
+    assert is_troublesome_name("0001-01234^^^^^^it-is-blue.jpg") is False
+    assert is_troublesome_name("photo^^^ls:hd=20260503^ls:dw=8^^^london.jpg") is False
+    assert is_troublesome_name("plain-photo.jpg") is False
+
+
+def test_malformed_stem_is_never_already_harvested():
+    """
+    the tag slot of a malformed stem holds a stray caret run, not tags.
+    reading it as tags is what let set overwrite the section.
+    """
+    assert is_already_harvested("0001-01234^^^^it-is-blue.jpg") is False
+    assert is_already_harvested("0001-01234^^^^^^^it-is-blue.jpg") is False

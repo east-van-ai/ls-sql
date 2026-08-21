@@ -1,9 +1,3 @@
-# ==============================================
-# ls-sql -- filesystem query engine
-# East Van AI -- AI for the rest of us!
-# https://github.com/east-van-ai
-# ==============================================
-
 """
 tests pinning the shared rename-preview format.
 
@@ -22,10 +16,8 @@ Option B throughout: main() called directly with mocked sys.argv.
 from io import StringIO
 from unittest.mock import patch
 
-import pytest
-
 from lssql.cli import main
-from lssql.cli_util import STATUS_WIDTH
+from lssql.shared import STATUS_WIDTH
 
 
 def _run(argv):
@@ -33,7 +25,6 @@ def _run(argv):
     with (
         patch("sys.stdout", new_callable=StringIO) as mock_out,
         patch("sys.argv", ["ls-sql"] + argv),
-        pytest.raises(SystemExit),
     ):
         main()
     return mock_out.getvalue()

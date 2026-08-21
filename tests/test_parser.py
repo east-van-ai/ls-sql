@@ -1,11 +1,6 @@
-# ==============================================
-# ls-sql -- filesystem query engine
-# East Van AI -- AI for the rest of us!
-# https://github.com/east-van-ai
-# ==============================================
-
 from lssql.parser import (
     build_file_path,
+    join_hatfile_name,
     parse_filename,
     should_skip,
     split_extension,
@@ -154,6 +149,104 @@ def test_stem_three_separator():
     assert comment == ""
 
 
+# test split_filename_stem -- degenerate but well-formed stems
+
+
+def test_stem_one_separator_no_head():
+    stem = "^^^ud:colour=blue"
+    original, raw_tags, comment = split_filename_stem(stem, SEPARATOR)
+    assert original == ""
+    assert raw_tags == "ud:colour=blue"
+    assert comment == ""
+
+
+def test_stem_one_separator_no_tail():
+    stem = "0001-01234^^^"
+    original, raw_tags, comment = split_filename_stem(stem, SEPARATOR)
+    assert original == "0001-01234"
+    assert raw_tags == ""
+    assert comment == ""
+
+
+def test_stem_two_separator_no_head():
+    stem = "^^^ud:colour=blue^^^it-is-blue"
+    original, raw_tags, comment = split_filename_stem(stem, SEPARATOR)
+    assert original == ""
+    assert raw_tags == "ud:colour=blue"
+    assert comment == "it-is-blue"
+
+
+def test_stem_two_separator_no_middle():
+    stem = "0001-01234^^^^^^it-is-blue"
+    original, raw_tags, comment = split_filename_stem(stem, SEPARATOR)
+    assert original == "0001-01234"
+    assert raw_tags == ""
+    assert comment == "it-is-blue"
+
+
+def test_stem_two_separator_no_tail():
+    stem = "0001-01234^^^ud:colour=blue^^^"
+    original, raw_tags, comment = split_filename_stem(stem, SEPARATOR)
+    assert original == "0001-01234"
+    assert raw_tags == "ud:colour=blue"
+    assert comment == ""
+
+
+def test_stem_two_separator_no_head_no_tail():
+    stem = "^^^ud:colour=blue^^^"
+    original, raw_tags, comment = split_filename_stem(stem, SEPARATOR)
+    assert original == ""
+    assert raw_tags == "ud:colour=blue"
+    assert comment == ""
+
+
+def test_stem_carets_inside_tag_part_stay_legal():
+    """^ is the tag delimiter, so it is legal between tags."""
+    stem = "IMG^^^ls:hd=20260503^ls:fh=03754271b00a0e1c^^^mom"
+    original, raw_tags, comment = split_filename_stem(stem, SEPARATOR)
+    assert original == "IMG"
+    assert raw_tags == "ls:hd=20260503^ls:fh=03754271b00a0e1c"
+    assert comment == "mom"
+
+
+# test split_filename_stem -- malformed stems parse as a plain filename.
+# an issue proposed normalizing the stray caret away; that guesses, and the
+# guess deletes a caret the user typed. see DESIGN.md, "What counts as a
+# Hatfile stem".
+
+
+def test_stem_short_caret_run_is_not_a_hatfile():
+    stem = "0001-01234^^^^it-is-blue"
+    original, raw_tags, comment = split_filename_stem(stem, SEPARATOR)
+    assert original == "0001-01234^^^^it-is-blue"
+    assert raw_tags == ""
+    assert comment == ""
+
+
+def test_stem_long_caret_run_is_not_a_hatfile():
+    stem = "0001-01234^^^^^^^it-is-blue"
+    original, raw_tags, comment = split_filename_stem(stem, SEPARATOR)
+    assert original == "0001-01234^^^^^^^it-is-blue"
+    assert raw_tags == ""
+    assert comment == ""
+
+
+def test_stem_caret_in_original_is_not_a_hatfile():
+    stem = "0001^01234^^^ud:colour=blue"
+    original, raw_tags, comment = split_filename_stem(stem, SEPARATOR)
+    assert original == "0001^01234^^^ud:colour=blue"
+    assert raw_tags == ""
+    assert comment == ""
+
+
+def test_stem_caret_in_comment_is_not_a_hatfile():
+    stem = "0001-01234^^^ud:colour=blue^^^it^is^blue"
+    original, raw_tags, comment = split_filename_stem(stem, SEPARATOR)
+    assert original == "0001-01234^^^ud:colour=blue^^^it^is^blue"
+    assert raw_tags == ""
+    assert comment == ""
+
+
 # test split_path
 
 
@@ -237,3 +330,50 @@ def test_build_file_path_empty_path():
 
 def test_build_file_path_None_path():
     assert build_file_path({"path": None, "filename": "cli.py"}) == "cli.py"
+
+
+# test join_hatfile_name -- the inverse of split_filename_stem
+
+
+def test_join_tags_and_comment():
+    result = join_hatfile_name("photo", "ls:hd=20260503", "nice-day", ".jpg")
+    assert result == "photo^^^ls:hd=20260503^^^nice-day.jpg"
+
+
+def test_join_tags_no_comment_keeps_both_boundaries():
+    result = join_hatfile_name("photo", "ls:hd=20260503", "", ".jpg")
+    assert result == "photo^^^ls:hd=20260503^^^.jpg"
+
+
+def test_join_comment_without_tags_keeps_empty_tag_section():
+    result = join_hatfile_name("photo", "", "nice-day", ".jpg")
+    assert result == "photo^^^^^^nice-day.jpg"
+
+
+def test_join_neither_is_the_plain_original():
+    assert join_hatfile_name("photo", "", "", ".jpg") == "photo.jpg"
+
+
+def test_join_no_extension():
+    assert join_hatfile_name("README", "", "", "") == "README"
+
+
+def test_join_round_trip_harvested():
+    filename = "photo^^^ls:hd=20260503^ud:trip=london^^^nice-day.jpg"
+    stem, ext = split_extension(filename)
+    original, raw_tags, comment = split_filename_stem(stem, SEPARATOR)
+    assert join_hatfile_name(original, raw_tags, comment, ext) == filename
+
+
+def test_join_round_trip_harvested_no_comment():
+    filename = "photo^^^ls:hd=20260503^^^.jpg"
+    stem, ext = split_extension(filename)
+    original, raw_tags, comment = split_filename_stem(stem, SEPARATOR)
+    assert join_hatfile_name(original, raw_tags, comment, ext) == filename
+
+
+def test_join_round_trip_plain():
+    filename = "photo.jpg"
+    stem, ext = split_extension(filename)
+    original, raw_tags, comment = split_filename_stem(stem, SEPARATOR)
+    assert join_hatfile_name(original, raw_tags, comment, ext) == filename

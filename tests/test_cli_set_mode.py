@@ -1,9 +1,3 @@
-# ==============================================
-# ls-sql -- filesystem query engine
-# East Van AI -- AI for the rest of us!
-# https://github.com/east-van-ai
-# ==============================================
-
 """
 CLI tests for lssql.
 two approaches, both demonstrated intentionally:
@@ -30,8 +24,7 @@ from io import StringIO
 from pathlib import Path
 from unittest.mock import patch
 
-import pytest
-
+from lssql.args import EXIT_ARGPARSE, EXIT_ERROR, EXIT_OK
 from lssql.cli import main
 from tests.test_cli import _ls_sql_bin, skip_on_ci
 
@@ -60,7 +53,7 @@ def test_cli_set_mode_option_a_directory_as_arg(tmp_path):
         text=True,
     )
 
-    assert result.returncode == 0
+    assert result.returncode == EXIT_OK
 
     marked = next(tmp_path.glob("photo^^^*^^^.jpg"))
     assert marked is not None
@@ -91,7 +84,7 @@ def test_cli_set_mode_option_a_filename_as_arg(tmp_path):
         text=True,
     )
 
-    assert result.returncode == 0
+    assert result.returncode == EXIT_OK
 
     marked = next(tmp_path.glob("photo^^^*^^^.jpg"))
     assert marked is not None
@@ -111,7 +104,7 @@ def test_cli_set_mode_option_a_no_set_arg(tmp_path):
         check=False,
     )
 
-    assert result.returncode == 2
+    assert result.returncode == EXIT_ARGPARSE
 
 
 @skip_on_ci
@@ -132,7 +125,7 @@ def test_cli_set_mode_option_a_implicit_dry_run(tmp_path):
         text=True,
     )
 
-    assert result.returncode == 0
+    assert result.returncode == EXIT_OK
     assert "dry-run" in result.stdout
 
 
@@ -155,7 +148,7 @@ def test_cli_set_mode_option_a_explicit_dry_run(tmp_path):
         text=True,
     )
 
-    assert result.returncode == 0
+    assert result.returncode == EXIT_OK
     assert "dry-run" in result.stdout
 
 
@@ -192,7 +185,7 @@ def test_cli_set_mode_option_a_overwrite_operation(tmp_path):
         text=True,
     )
 
-    assert result.returncode == 0
+    assert result.returncode == EXIT_OK
     assert "my-custom-tag:colour=blue;green" in result.stdout  # alphabetical order
     assert "1 file(s) committed, 0 skipped" in result.stdout
 
@@ -230,7 +223,7 @@ def test_cli_set_mode_option_a_append_operation(tmp_path):
         text=True,
     )
 
-    assert result.returncode == 0
+    assert result.returncode == EXIT_OK
     assert "my-custom-tag:colour=blue;green;red" in result.stdout
     assert "1 file(s) committed, 0 skipped" in result.stdout
 
@@ -268,7 +261,7 @@ def test_cli_set_mode_option_a_remove_operation(tmp_path):
         text=True,
     )
 
-    assert result.returncode == 0
+    assert result.returncode == EXIT_OK
     assert "my-custom-tag:colour=blue;red" in result.stdout
     assert "1 file(s) committed, 0 skipped" in result.stdout
 
@@ -306,7 +299,7 @@ def test_cli_set_mode_option_a_delete_operation(tmp_path):
         text=True,
     )
 
-    assert result.returncode == 0
+    assert result.returncode == EXIT_OK
     assert "dry-run" not in result.stdout
     assert "1 file(s) committed, 0 skipped" in result.stdout
 
@@ -332,11 +325,10 @@ def test_cli_set_mode_option_b_directory_as_arg(tmp_path, freeze_date):
                 "--commit",
             ],
         ),
-        pytest.raises(SystemExit) as exc,
     ):
-        main()
+        code = main()
 
-    assert exc.value.code == 0
+    assert code == EXIT_OK
     marked = next(tmp_path.glob("photo^^^*^^^.jpg"))
     assert marked is not None
 
@@ -362,11 +354,10 @@ def test_cli_set_mode_option_b_filename_as_arg(tmp_path, freeze_date):
                 "--commit",
             ],
         ),
-        pytest.raises(SystemExit) as exc,
     ):
-        main()
+        code = main()
 
-    assert exc.value.code == 0
+    assert code == EXIT_OK
     marked = next(tmp_path.glob("photo^^^*^^^.jpg"))
     assert marked is not None
 
@@ -381,11 +372,10 @@ def test_cli_set_mode_option_b_no_tags_arg(tmp_path, freeze_date):
     with (
         patch("sys.stdout", new_callable=StringIO),
         patch("sys.argv", ["ls-sql", "set", str(tmp_path)]),
-        pytest.raises(SystemExit) as exc,
     ):
-        main()
+        code = main()
 
-    assert exc.value.code == 1
+    assert code == EXIT_ERROR
 
 
 def test_cli_set_mode_option_b_implicit_dry_run(tmp_path, freeze_date):
@@ -403,11 +393,10 @@ def test_cli_set_mode_option_b_implicit_dry_run(tmp_path, freeze_date):
                 "my-custom-tag:colour=green;blue",
             ],
         ),
-        pytest.raises(SystemExit) as exc,
     ):
-        main()
+        code = main()
 
-    assert exc.value.code == 0
+    assert code == EXIT_OK
     assert "dry-run" in mock_out.getvalue()
     assert "no files changed -- pass --commit to execute" in mock_out.getvalue()
 
@@ -428,11 +417,10 @@ def test_cli_set_mode_option_b_explicit_dry_run(tmp_path, freeze_date):
                 "--dry-run",
             ],
         ),
-        pytest.raises(SystemExit) as exc,
     ):
-        main()
+        code = main()
 
-    assert exc.value.code == 0
+    assert code == EXIT_OK
     assert "dry-run" in mock_out.getvalue()
     assert "no files changed -- pass --commit to execute" in mock_out.getvalue()
 
@@ -454,11 +442,10 @@ def test_cli_set_mode_option_b_overwrite(tmp_path, freeze_date):
                 "--commit",
             ],
         ),
-        pytest.raises(SystemExit) as exc,
     ):
-        main()
+        code = main()
 
-    assert exc.value.code == 0
+    assert code == EXIT_OK
     assert "dry-run" not in mock_out.getvalue()
     assert "my-custom-tag:colour=blue;green" in mock_out.getvalue()
     assert "1 file(s) committed, 0 skipped" in mock_out.getvalue()
@@ -481,7 +468,6 @@ def test_cli_set_mode_option_b_append(tmp_path, freeze_date):
                 "--commit",
             ],
         ),
-        pytest.raises(SystemExit),
     ):
         main()
 
@@ -498,11 +484,10 @@ def test_cli_set_mode_option_b_append(tmp_path, freeze_date):
                 "--commit",
             ],
         ),
-        pytest.raises(SystemExit) as exc,
     ):
-        main()
+        code = main()
 
-    assert exc.value.code == 0
+    assert code == EXIT_OK
     assert "my-custom-tag:colour=blue;green;red" in mock_out.getvalue()
     assert "1 file(s) committed, 0 skipped" in mock_out.getvalue()
 
@@ -524,7 +509,6 @@ def test_cli_set_mode_option_b_remove(tmp_path, freeze_date):
                 "--commit",
             ],
         ),
-        pytest.raises(SystemExit),
     ):
         main()
 
@@ -541,11 +525,10 @@ def test_cli_set_mode_option_b_remove(tmp_path, freeze_date):
                 "--commit",
             ],
         ),
-        pytest.raises(SystemExit) as exc,
     ):
-        main()
+        code = main()
 
-    assert exc.value.code == 0
+    assert code == EXIT_OK
     assert "my-custom-tag:colour=blue;red" in mock_out.getvalue()
     assert "1 file(s) committed, 0 skipped" in mock_out.getvalue()
 
@@ -567,7 +550,6 @@ def test_cli_set_mode_option_b_delete(tmp_path, freeze_date):
                 "--commit",
             ],
         ),
-        pytest.raises(SystemExit),
     ):
         main()
 
@@ -584,11 +566,10 @@ def test_cli_set_mode_option_b_delete(tmp_path, freeze_date):
                 "--commit",
             ],
         ),
-        pytest.raises(SystemExit) as exc,
     ):
-        main()
+        code = main()
 
-    assert exc.value.code == 0
+    assert code == EXIT_OK
     assert "1 file(s) committed, 0 skipped" in mock_out.getvalue()
 
 
@@ -604,9 +585,8 @@ def test_cli_set_mode_option_b_directory_containing_hidden_files(tmp_path, freez
     with (
         patch("sys.stdout", new_callable=StringIO) as mock_out,
         patch("sys.argv", ["ls-sql", "harvest", str(tmp_path), "--commit"]),
-        pytest.raises(SystemExit) as exc,
     ):
-        main()
+        code = main()
 
     # Note: the order may not be [aaa, bbb, ccc]
     files = sorted(tmp_path.glob("???^^^*^^^.jpg"))
@@ -636,11 +616,10 @@ def test_cli_set_mode_option_b_directory_containing_hidden_files(tmp_path, freez
                 "--commit",
             ],
         ),
-        pytest.raises(SystemExit) as exc,
     ):
-        main()
+        code = main()
 
-    assert exc.value.code == 0
+    assert code == EXIT_OK
     assert "1 file(s) committed, 0 skipped" in mock_out.getvalue()
     assert "my-custom-tag:colour=blue;green;red" in mock_out.getvalue()
 
@@ -652,9 +631,8 @@ def test_cli_set_mode_option_b_hidden_filename_with_extension(tmp_path, freeze_d
     with (
         patch("sys.stdout", new_callable=StringIO) as mock_out,
         patch("sys.argv", ["ls-sql", "harvest", str(tmp_path), "--commit"]),
-        pytest.raises(SystemExit) as exc,
     ):
-        main()
+        code = main()
 
     marked = next(tmp_path.glob("bbb^^^*^^^.jpg"))
     assert marked is not None
@@ -676,11 +654,10 @@ def test_cli_set_mode_option_b_hidden_filename_with_extension(tmp_path, freeze_d
                 "--commit",
             ],
         ),
-        pytest.raises(SystemExit) as exc,
     ):
-        main()
+        code = main()
 
-    assert exc.value.code == 0
+    assert code == EXIT_OK
     assert "0 file(s) committed, 0 skipped" in mock_out.getvalue()
 
 
@@ -691,9 +668,8 @@ def test_cli_set_mode_option_b_hidden_filename_without_extension(tmp_path, freez
     with (
         patch("sys.stdout", new_callable=StringIO) as mock_out,
         patch("sys.argv", ["ls-sql", "harvest", str(tmp_path), "--commit"]),
-        pytest.raises(SystemExit) as exc,
     ):
-        main()
+        code = main()
 
     marked = next(tmp_path.glob("ccc^^^*^^^.jpg"))
     assert marked is not None
@@ -716,11 +692,10 @@ def test_cli_set_mode_option_b_hidden_filename_without_extension(tmp_path, freez
                 "--commit",
             ],
         ),
-        pytest.raises(SystemExit) as exc,
     ):
-        main()
+        code = main()
 
-    assert exc.value.code == 0
+    assert code == EXIT_OK
     assert "0 file(s) committed, 0 skipped" in mock_out.getvalue()
 
 
@@ -738,7 +713,6 @@ def _harvest_file(tmp_path, filename, content="fake content", freeze=None):
     with (
         patch("sys.stdout", new_callable=StringIO),
         patch("sys.argv", argv),
-        pytest.raises(SystemExit),
     ):
         main()
 
@@ -788,12 +762,11 @@ def test_set_fh_dry_run_matches_file(tmp_path, freeze_date):
                 fh[:8],
             ],
         ),
-        pytest.raises(SystemExit) as exc,
     ):
-        main()
+        code = main()
 
     out = mock_out.getvalue()
-    assert exc.value.code == 0
+    assert code == EXIT_OK
     assert "dry-run" in out
     assert "no files changed" in out
 
@@ -820,11 +793,10 @@ def test_set_fh_commit_renames_file(tmp_path, freeze_date):
                 "--commit",
             ],
         ),
-        pytest.raises(SystemExit) as exc,
     ):
-        main()
+        code = main()
 
-    assert exc.value.code == 0
+    assert code == EXIT_OK
     assert "committed" in mock_out.getvalue()
     tagged = list(tmp_path.glob("photo^^^*ud:greeting=hello*"))
     assert tagged, "expected a file with ud:greeting=hello in its name"
@@ -851,11 +823,10 @@ def test_set_fh_no_match_exits_one(tmp_path, freeze_date):
                 "00000000",
             ],
         ),
-        pytest.raises(SystemExit) as exc,
     ):
-        main()
+        code = main()
 
-    assert exc.value.code == 1
+    assert code == EXIT_ERROR
     assert "no files matched --fh hashes" in mock_err.getvalue()
 
 
@@ -885,12 +856,67 @@ def test_set_fh_prefix_matches_correct_file(tmp_path, freeze_date):
                 "--commit",
             ],
         ),
-        pytest.raises(SystemExit) as exc,
     ):
-        main()
+        code = main()
 
-    assert exc.value.code == 0
+    assert code == EXIT_OK
     assert "1 file(s) committed" in mock_out.getvalue()
     # beta untouched
     beta_tagged = list(tmp_path.glob("beta^^^*ud:label=alpha-only*"))
     assert not beta_tagged, "beta should not have been tagged"
+
+
+# -- malformed stems are never rewritten --
+
+
+def test_cli_set_mode_option_b_malformed_stem_is_not_rewritten(tmp_path, freeze_date):
+    """
+    main(): set leaves a stem with a stray caret run alone.
+
+    regression for malformed stems parse issue. a four-caret run put '^it-is-blue' in the tag
+    slot, is_already_harvested() read that as real tags, and set overwrote the
+    section -- destroying 'it-is-blue' with no way to recover it from the
+    filename.
+    """
+    name = "0001-01234^^^^it-is-blue.jpg"
+    (tmp_path / name).write_text("fake image content")
+
+    mock_out = StringIO()
+    with (
+        patch("sys.stdout", new=mock_out),
+        patch(
+            "sys.argv",
+            ["ls-sql", "set", str(tmp_path), "--tags", "ud:colour=blue", "--commit"],
+        ),
+    ):
+        code = main()
+
+    assert code == EXIT_OK
+    assert "0 file(s) committed, 1 skipped" in mock_out.getvalue()
+    assert (tmp_path / name).exists(), "the malformed file must be untouched"
+    assert "it-is-blue" in (tmp_path / name).name
+
+
+def test_cli_set_mode_option_b_empty_tag_section_still_works(tmp_path, freeze_date):
+    """
+    main(): a six-caret stem is well-formed and still accepts a tag.
+
+    guards the rule against overreach -- 'original^^^^^^comment' is a
+    harvested file with an empty tag section, not a malformed name.
+    """
+    (tmp_path / "0001-01234^^^^^^it-is-blue.jpg").write_text("fake image content")
+
+    mock_out = StringIO()
+    with (
+        patch("sys.stdout", new=mock_out),
+        patch(
+            "sys.argv",
+            ["ls-sql", "set", str(tmp_path), "--tags", "ud:colour=blue", "--commit"],
+        ),
+    ):
+        code = main()
+
+    assert code == EXIT_OK
+    assert "1 file(s) committed" in mock_out.getvalue()
+    tagged = next(tmp_path.glob("0001-01234^^^*ud:colour=blue*^^^it-is-blue.jpg"))
+    assert tagged is not None

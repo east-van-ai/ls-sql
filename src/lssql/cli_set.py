@@ -1,9 +1,3 @@
-# ==============================================
-# East Van AI -- AI for the rest of us!
-# https://github.com/east-van-ai
-# contact: east-van-ai@proton.me
-# ==============================================
-
 """
 ls-sql set -- write user-defined tags into filenames.
 
@@ -27,9 +21,10 @@ Options: --tags (required), --fh, --commit, --dry-run, -R, --verbose
 
 import sys
 
-from lssql.cli_util import print_rename_results, resolve
+from lssql.args import EXIT_ERROR, EXIT_OK
 from lssql.scanner import scan_directory
 from lssql.setter import set_file, set_tags_directory
+from lssql.shared import print_rename_results, resolve
 
 
 def run_set_mode(
@@ -54,14 +49,14 @@ def run_set_mode(
         ]
         if not targets:
             print("ls-sql: no files matched --fh hashes", file=sys.stderr)
-            return 1
+            return EXIT_ERROR
 
         results = [set_file(r["path"], r["filename"], ops, commit) for r in targets]
         print_rename_results(
             results, recursive=recursive, verbose=verbose, commit=commit
         )
 
-        return 0
+        return EXIT_OK
 
     results = resolve(
         target,
@@ -71,4 +66,4 @@ def run_set_mode(
 
     print_rename_results(results, recursive=recursive, verbose=verbose, commit=commit)
 
-    return 0
+    return EXIT_OK

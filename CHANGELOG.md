@@ -6,6 +6,58 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [v0.15.1] - 2026-08-21
+
+### Changed
+
+- `pyproject.toml` is the only place dependencies are declared. Runtime
+  packages sit in `[project] dependencies` as floors instead of exact pins;
+  dev tooling moved to `[dependency-groups]`, which never ships in the wheel.
+  Install with `pip install -e . --group dev` (needs pip 25.1 or newer).
+- `pyproject.toml` gained the packaging metadata it was missing: `description`,
+  `readme`, `authors`, `license`, `license-files`, an explicit `[build-system]`
+  on `setuptools>=77` for PEP 639, and `[tool.setuptools.packages.find]`.
+- README, DESIGN, and HATFILE rewritten for the ear. The README opens on a
+  filename before and after a harvest instead of a feature list, reference
+  blocks became tables, and the dash-as-conjunction habit is gone throughout.
+- Duplicated logic folded together. `list` takes its file-or-directory
+  dispatch from `shared.resolve()`, the three places that assembled
+  `original^^^tags^^^comment.ext` by hand call `parser.join_hatfile_name()`,
+  one `scanner.walk_files()` replaced five directory walkers, and `SEPARATOR`
+  is declared once, in `parser.py`.
+
+### Removed
+
+- RELEASING.md. Nothing in it was specific to ls-sql, and the stable-branch
+  model it described is already gone.
+- ROADMAP.md. It never shipped with a release, and unbuilt ideas are now
+  tracked outside the repo.
+- The five-line banner comment repeated at the top of every source and test
+  file. `cli.py` keeps its own: that one is the banner a bare `ls-sql` prints.
+- `requirements.txt` and `requirements-dev.txt`.
+
+### Fixed
+
+- `--max` caps a whole harvest run again. The limit was handed to each
+  subdirectory as a budget minus the files already seen, skipped ones
+  included, so a recursive `--max 2` could rename five files, one, or none
+  depending on how many unrelated files preceded a subdirectory. It now counts
+  the files a run actions, once, across the whole walk, and the files it skips
+  are reported rather than dropped.
+- `set` names `--tags` in the errors it raises about its payload. Three of
+  them still said `--set`, the flag v0.15.0 renamed, so the message pointed at
+  a flag the user could not have typed.
+- `set` no longer destroys filename text on a stem whose caret run is not a
+  multiple of three. `0001-01234^^^^it-is-blue.png` lost `it-is-blue`, and
+  `reset` could not recover it. Such a stem is not a Hatfile and the write
+  paths now skip it.
+- `harvest` no longer turns a seven-caret stem into a four-caret one.
+- Rename previews no longer double the separator when the path is given with a
+  trailing slash, which is what tab completion produces.
+- The CI workflow ships with the public release again. `.weed-out-ignore`
+  matches `.github/**/*.yaml`, but the file was named `ci.yml`, so it was
+  being weeded out.
+
 ## [v0.15.0] - 2026-08-06
 
 The version line returns to `0.x`, resuming after `v0.14.1`. The `v1.0.0` and

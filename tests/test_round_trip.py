@@ -1,9 +1,3 @@
-# ==============================================
-# ls-sql -- filesystem query engine
-# East Van AI -- AI for the rest of us!
-# https://github.com/east-van-ai
-# ==============================================
-
 """
 round-trip integration tests for lssql.harvester.
 harvest then reset must equal the original filename.

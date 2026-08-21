@@ -1,17 +1,4 @@
-# ==============================================
-# East Van AI -- AI for the rest of us!
-# https://github.com/east-van-ai
-# contact: east-van-ai@proton.me
-# ==============================================
-#
-# lssql.cli_util - shared plumbing for the cli_<command> modules.
-#
-# Target dispatch and the rename-preview printer. Everything here is
-# used by more than one command; anything used by exactly one lives
-# with that command.
-#
-# License: MIT
-# ==============================================
+"""Shared plumbing for the cli_<command> modules."""
 
 import os
 

@@ -1,9 +1,3 @@
-# ==============================================
-# East Van AI -- AI for the rest of us!
-# https://github.com/east-van-ai
-# contact: east-van-ai@proton.me
-# ==============================================
-
 """
 ls-sql verify -- re-hash files and compare against ls:fh in the filename.
 
@@ -19,13 +13,14 @@ prefix. Files without ls:fh are skipped with a reason.
 Options: -R, --verbose
 """
 
-from lssql.cli_util import resolve
+from lssql.args import EXIT_ERROR, EXIT_OK
 from lssql.harvester import verify_directory, verify_file
+from lssql.shared import resolve
 
 
 def run_verify_mode(target: str, recursive: bool, verbose: bool) -> int:
     """
-    returns exit code -- 0 if all ok, 1 if any changed.
+    returns exit code -- EXIT_OK(0) if all ok, EXIT_ERROR(1) if any changed.
     """
 
     results = resolve(
@@ -53,4 +48,4 @@ def run_verify_mode(target: str, recursive: bool, verbose: bool) -> int:
 
     print(f"\n{checked} file(s) checked, {changed} changed, {skipped} skipped")
 
-    return 1 if changed else 0
+    return EXIT_ERROR if changed else EXIT_OK

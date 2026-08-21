@@ -1,9 +1,3 @@
-# ==============================================
-# ls-sql -- filesystem query engine
-# East Van AI -- AI for the rest of us!
-# https://github.com/east-van-ai
-# ==============================================
-
 import hashlib
 from datetime import datetime
 
@@ -39,6 +33,7 @@ def extract_dimension(filepath: str, ext: str) -> tuple[str, str]:
 
 
 def harvest_date() -> str:
+    """return today's date as YYYYMMDD, the value carried by ls:hd."""
     # local date on purpose: the tag records the day the file was harvested
     # on this machine, not a UTC instant.
     return datetime.now().strftime("%Y%m%d")  # noqa: DTZ005

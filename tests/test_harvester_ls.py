@@ -1,9 +1,3 @@
-# ==============================================
-# ls-sql -- filesystem query engine
-# East Van AI -- AI for the rest of us!
-# https://github.com/east-van-ai
-# ==============================================
-
 """
 tests for lssql.harvester with pytest.
 * 'tmp_path' -- a built-in pytest fixture. fresh temporary directory per test, cleans up automatically.

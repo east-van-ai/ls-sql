@@ -1,9 +1,3 @@
-# ==============================================
-# ls-sql -- filesystem query engine
-# East Van AI -- AI for the rest of us!
-# https://github.com/east-van-ai
-# ==============================================
-
 SEPARATOR = "^^^"
 
 
@@ -50,14 +44,41 @@ def parse_tags(raw: str) -> dict:
     return tags
 
 
+def is_hatfile_stem(stem: str, separator: str = SEPARATOR) -> bool:
+    """
+    report whether a stem is a well-formed Hatfile stem.
+
+    a stray caret is the thing this catches. splitting on '^^^' alone is
+    greedy from the left, so an odd caret stays glued to the front of the
+    next field and '0001-01234^^^^it-is-blue' reads as tags of '^it-is-blue'.
+    see DESIGN.md, "What counts as a Hatfile stem".
+    """
+
+    parts = stem.split(separator)
+
+    if len(parts) > 3:
+        return False
+
+    original = parts[0]
+    raw_tags = parts[1] if len(parts) > 1 else ""
+    comment = parts[2] if len(parts) > 2 else ""
+
+    if "^" in original or "^" in comment:
+        return False
+
+    # '^' is the tag delimiter, so carets are legal in the tag part. a leading,
+    # trailing, or doubled one is not: it opens an empty segment.
+    return raw_tags == "" or "" not in raw_tags.split("^")
+
+
 def split_filename_stem(stem: str, separator: str) -> tuple:
     """
     split a filename stem into (original, raw_tags, comment).
     * caller must strip any directory components from stem before invoking.
-    * when stem contains too many separators, return it as 'original'.
+    * when stem is not a Hatfile stem, return it whole as 'original'.
     """
 
-    if stem.count(separator) > 2:
+    if not is_hatfile_stem(stem, separator):
         return stem, "", ""
 
     parts = stem.split(separator)
@@ -67,6 +88,22 @@ def split_filename_stem(stem: str, separator: str) -> tuple:
     comment = parts[2] if len(parts) > 2 else ""
 
     return original, raw_tags, comment
+
+
+def join_hatfile_name(original: str, tags: str, comment: str, ext: str) -> str:
+    """
+    assemble a filename from its Hatfile components. the inverse of
+    split_filename_stem, with the extension put back on.
+
+    a comment sits right of the second ^^^, so it needs both boundaries even
+    when the tag section between them is empty. with neither a comment nor
+    tags there is no boundary to draw, and the name is the plain original.
+    """
+    if comment:
+        return f"{original}{SEPARATOR}{tags}{SEPARATOR}{comment}{ext}"
+    if tags:
+        return f"{original}{SEPARATOR}{tags}{SEPARATOR}{ext}"
+    return f"{original}{ext}"
 
 
 def split_path(filename_with_path: str) -> tuple:

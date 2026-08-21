@@ -1,9 +1,3 @@
-# ==============================================
-# ls-sql -- filesystem query engine
-# East Van AI -- AI for the rest of us!
-# https://github.com/east-van-ai
-# ==============================================
-
 """
 audio metadata extraction (MP3, M4A)
 """
@@ -22,12 +16,11 @@ def build_au_tag_string(filepath: str, ext: str) -> str:
     """
     if ext.lower() not in SUPPORTED_AUDIO_EXTS:
         return ""
+    # the guard above leaves the two supported extensions, and nothing else
     if ext.lower() == ".mp3":
         tags = _extract_mp3_tags(filepath)
-    elif ext.lower() == ".m4a":
-        tags = _extract_m4a_tags(filepath)
     else:
-        return ""
+        tags = _extract_m4a_tags(filepath)
     return tags_to_string(tags)
 
 

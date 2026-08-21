@@ -1,9 +1,3 @@
-# ==============================================
-# ls-sql -- filesystem query engine
-# East Van AI -- AI for the rest of us!
-# https://github.com/east-van-ai
-# ==============================================
-
 """
 tests for setter.py
 
@@ -140,6 +134,20 @@ def test_parse_no_operator():
     ops, error = parse_set_string("ud:fruit")
     assert error is not None
     assert ops == []
+
+
+def test_parse_errors_name_the_flag_that_exists():
+    """the payload arrives via --tags. no error may still name --set."""
+    for bad in ("", "   ", "^", "ud:fruit", "fruit=banana", "ls:fh=abc"):
+        _ops, error = parse_set_string(bad)
+        assert error is not None
+        assert "--set" not in error
+
+
+def test_parse_errors_about_the_payload_name_tags():
+    for bad in ("", "^", "ud:fruit"):
+        _ops, error = parse_set_string(bad)
+        assert "--tags" in error
 
 
 def test_parse_missing_namespace():

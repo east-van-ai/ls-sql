@@ -1,9 +1,3 @@
-# ==============================================
-# ls-sql -- filesystem query engine
-# East Van AI -- AI for the rest of us!
-# https://github.com/east-van-ai
-# ==============================================
-
 """
 CLI tests for lssql.
 two approaches, both demonstrated intentionally:
@@ -34,6 +28,7 @@ from unittest.mock import patch
 
 import pytest
 
+from lssql.args import EXIT_ARGPARSE, EXIT_ERROR, EXIT_OK
 from lssql.cli import main
 
 
@@ -67,7 +62,7 @@ def test_cli_harvest_dry_run_subprocess(tmp_path):
         text=True,
     )
 
-    assert result.returncode == 0
+    assert result.returncode == EXIT_OK
     assert "dry-run" in result.stdout
     assert "no files changed" in result.stdout
 
@@ -84,7 +79,7 @@ def test_cli_harvest_commit_subprocess(tmp_path):
         text=True,
     )
 
-    assert result.returncode == 0
+    assert result.returncode == EXIT_OK
     assert "committed" in result.stdout
     assert len(list(tmp_path.glob("photo^^^*"))) == 1
 
@@ -107,7 +102,7 @@ def test_cli_verify_exit_code_zero_subprocess(tmp_path):
         text=True,
     )
 
-    assert result.returncode == 0
+    assert result.returncode == EXIT_OK
 
 
 @skip_on_ci
@@ -131,7 +126,7 @@ def test_cli_verify_exit_code_one_subprocess(tmp_path):
         text=True,
     )
 
-    assert result.returncode == 1
+    assert result.returncode == EXIT_ERROR
 
 
 @skip_on_ci
@@ -154,7 +149,7 @@ def test_cli_no_path_subprocess_without_a_terminal():
             text=True,
         )
 
-    assert result.returncode == 0
+    assert result.returncode == EXIT_OK
     assert "ls-sql harvest " in result.stdout
 
 
@@ -175,7 +170,7 @@ def test_cli_no_path_subprocess_with_a_terminal():
         os.close(primary)
         os.close(secondary)
 
-    assert result.returncode == 0
+    assert result.returncode == EXIT_OK
     assert "ls-sql harvest " in result.stdout
 
 
@@ -189,11 +184,10 @@ def test_cli_harvest_dry_run_main(tmp_path, freeze_date):
     with (
         patch("sys.stdout", new_callable=StringIO) as mock_out,
         patch("sys.argv", ["ls-sql", "harvest", str(tmp_path)]),
-        pytest.raises(SystemExit) as exc,
     ):
-        main()
+        code = main()
 
-    assert exc.value.code == 0
+    assert code == EXIT_OK
     assert "dry-run" in mock_out.getvalue()
     assert "no files changed" in mock_out.getvalue()
 
@@ -205,11 +199,10 @@ def test_cli_harvest_commit_main(tmp_path, freeze_date):
     with (
         patch("sys.stdout", new_callable=StringIO) as mock_out,
         patch("sys.argv", ["ls-sql", "harvest", str(tmp_path), "--commit"]),
-        pytest.raises(SystemExit) as exc,
     ):
-        main()
+        code = main()
 
-    assert exc.value.code == 0
+    assert code == EXIT_OK
     assert "committed" in mock_out.getvalue()
     assert len(list(tmp_path.glob("photo^^^*"))) == 1
 
@@ -224,11 +217,10 @@ def test_cli_reset_main(tmp_path, freeze_date):
             "sys.argv",
             ["ls-sql", "reset", str(tmp_path), "--commit"],
         ),
-        pytest.raises(SystemExit) as exc,
     ):
-        main()
+        code = main()
 
-    assert exc.value.code == 0
+    assert code == EXIT_OK
     assert "committed" in mock_out.getvalue()
     assert (tmp_path / "photo.jpg").exists()
 
@@ -240,18 +232,16 @@ def test_cli_verify_ok_main(tmp_path, freeze_date):
     with (
         patch("sys.stdout", new_callable=StringIO),
         patch("sys.argv", ["ls-sql", "harvest", str(tmp_path), "--commit"]),
-        pytest.raises(SystemExit),
     ):
         main()
 
     with (
         patch("sys.stdout", new_callable=StringIO),
         patch("sys.argv", ["ls-sql", "verify", str(tmp_path)]),
-        pytest.raises(SystemExit) as exc,
     ):
-        main()
+        code = main()
 
-    assert exc.value.code == 0
+    assert code == EXIT_OK
 
 
 def test_cli_verify_changed_main(tmp_path, freeze_date):
@@ -261,7 +251,6 @@ def test_cli_verify_changed_main(tmp_path, freeze_date):
     with (
         patch("sys.stdout", new_callable=StringIO),
         patch("sys.argv", ["ls-sql", "harvest", str(tmp_path), "--commit"]),
-        pytest.raises(SystemExit),
     ):
         main()
 
@@ -271,11 +260,10 @@ def test_cli_verify_changed_main(tmp_path, freeze_date):
     with (
         patch("sys.stdout", new_callable=StringIO),
         patch("sys.argv", ["ls-sql", "verify", str(tmp_path)]),
-        pytest.raises(SystemExit) as exc,
     ):
-        main()
+        code = main()
 
-    assert exc.value.code == 1
+    assert code == EXIT_ERROR
 
 
 def test_cli_no_path_main():
@@ -283,11 +271,10 @@ def test_cli_no_path_main():
     with (
         patch("sys.stdout", new_callable=StringIO),
         patch("sys.argv", ["ls-sql", "harvest", "--commit"]),
-        pytest.raises(SystemExit) as exc,
     ):
-        main()
+        code = main()
 
-    assert exc.value.code == 1
+    assert code == EXIT_ERROR
 
 
 # ---------------------------------------------------------------------------
@@ -306,11 +293,10 @@ def test_pipe_mode_plain_filename(tmp_path):
         patch("sys.argv", ["ls-sql"]),
         patch("sys.stdin", StringIO(fake_input)),
         patch("sys.stdout", new_callable=StringIO) as mock_out,
-        pytest.raises(SystemExit) as exc,
     ):
-        main()
+        code = main()
 
-    assert exc.value.code == 0
+    assert code == EXIT_OK
     assert "photo.jpg" in mock_out.getvalue()
 
 
@@ -326,11 +312,10 @@ def test_pipe_mode_hatfile_filename(tmp_path):
         patch("sys.argv", ["ls-sql"]),
         patch("sys.stdin", StringIO(fake_input)),
         patch("sys.stdout", new_callable=StringIO) as mock_out,
-        pytest.raises(SystemExit) as exc,
     ):
-        main()
+        code = main()
 
-    assert exc.value.code == 0
+    assert code == EXIT_OK
     assert filename in mock_out.getvalue()
 
 
@@ -345,11 +330,10 @@ def test_pipe_mode_skips_hidden_files(tmp_path):
         patch("sys.argv", ["ls-sql"]),
         patch("sys.stdin", StringIO(fake_input)),
         patch("sys.stdout", new_callable=StringIO) as mock_out,
-        pytest.raises(SystemExit) as exc,
     ):
-        main()
+        code = main()
 
-    assert exc.value.code == 0
+    assert code == EXIT_OK
     assert ".hidden" not in mock_out.getvalue()
 
 
@@ -366,11 +350,10 @@ def test_pipe_mode_multiple_lines(tmp_path):
         patch("sys.argv", ["ls-sql"]),
         patch("sys.stdin", StringIO(fake_input)),
         patch("sys.stdout", new_callable=StringIO) as mock_out,
-        pytest.raises(SystemExit) as exc,
     ):
-        main()
+        code = main()
 
-    assert exc.value.code == 0
+    assert code == EXIT_OK
     out = mock_out.getvalue()
     assert "alpha.jpg" in out
     assert "beta.jpg" in out
@@ -386,11 +369,10 @@ def test_pipe_mode_empty_stdin():
         patch("sys.argv", ["ls-sql"]),
         patch("sys.stdin", StringIO("")),
         patch("sys.stdout", new_callable=StringIO) as mock_out,
-        pytest.raises(SystemExit) as exc,
     ):
-        main()
+        code = main()
 
-    assert exc.value.code == 0
+    assert code == EXIT_OK
     assert mock_out.getvalue() == ""
 
 
@@ -402,11 +384,10 @@ def test_cli_bare_invocation_prints_banner_main():
     with (
         patch("sys.stdout", new_callable=StringIO) as mock_out,
         patch("sys.argv", ["ls-sql"]),
-        pytest.raises(SystemExit) as exc,
     ):
-        main()
+        code = main()
 
-    assert exc.value.code == 0
+    assert code == EXIT_OK
     out = mock_out.getvalue()
     assert "ls-sql" in out
     assert "Usage:" in out
@@ -418,11 +399,10 @@ def test_cli_missing_path_usage_error_main():
     with (
         patch("sys.stderr", new_callable=StringIO) as mock_err,
         patch("sys.argv", ["ls-sql", "harvest", "--commit"]),
-        pytest.raises(SystemExit) as exc,
     ):
-        main()
+        code = main()
 
-    assert exc.value.code == 1
+    assert code == EXIT_ERROR
     err = mock_err.getvalue()
     assert "ls-sql: a path is required" in err
     assert "Usage: ls-sql list|harvest|set|verify|reset PATH" in err
@@ -437,11 +417,10 @@ def test_cli_target_not_found_error_main(tmp_path):
     with (
         patch("sys.stderr", new_callable=StringIO) as mock_err,
         patch("sys.argv", ["ls-sql", "list", str(missing)]),
-        pytest.raises(SystemExit) as exc,
     ):
-        main()
+        code = main()
 
-    assert exc.value.code == 1
+    assert code == EXIT_ERROR
     err = mock_err.getvalue()
     assert "ls-sql: directory or file not found" in err
     assert "Usage: ls-sql list|harvest|set|verify|reset PATH" in err
@@ -456,7 +435,7 @@ def test_cli_unknown_flag_exits_two_main():
     ):
         main()
 
-    assert exc.value.code == 2
+    assert exc.value.code == EXIT_ARGPARSE
     assert "unrecognized arguments" in mock_err.getvalue()
 
 
@@ -469,5 +448,5 @@ def test_cli_unknown_command_exits_two_main():
     ):
         main()
 
-    assert exc.value.code == 2
+    assert exc.value.code == EXIT_ARGPARSE
     assert "invalid choice" in mock_err.getvalue()

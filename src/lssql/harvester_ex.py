@@ -1,9 +1,3 @@
-# ==============================================
-# ls-sql -- filesystem query engine
-# East Van AI -- AI for the rest of us!
-# https://github.com/east-van-ai
-# ==============================================
-
 """
 EXIF metadata extraction for JPG files
 """
@@ -19,6 +13,15 @@ def _safe(d, ifd, tag):
         return d[ifd][tag]
     except KeyError, TypeError:
         return None
+
+
+def _rational(value) -> str:
+    """
+    format an EXIF rational as a trimmed decimal string.
+    (28, 10) -> '2.8', (50, 1) -> '50'
+    """
+    numerator, denominator = value
+    return f"{numerator / denominator:.1f}".rstrip("0").rstrip(".")
 
 
 def extract_jpg_tags(filepath: str) -> dict:
@@ -67,11 +70,7 @@ def extract_jpg_tags(filepath: str) -> dict:
     ap = _safe(exif, "Exif", piexif.ExifIFD.FNumber)
     if ap:
         try:
-            numerator, denominator = ap
-            value = numerator / denominator
-            # format cleanly: f2.8 not f2.800000
-            formatted = f"{value:.1f}".rstrip("0").rstrip(".")
-            tags["ex:ap"] = f"f{formatted}"
+            tags["ex:ap"] = f"f{_rational(ap)}"  # f2.8, not f2.800000
         except Exception:  # noqa: BLE001, S110 -- a bad field yields no tag
             pass
 
@@ -79,10 +78,7 @@ def extract_jpg_tags(filepath: str) -> dict:
     fl = _safe(exif, "Exif", piexif.ExifIFD.FocalLength)
     if fl:
         try:
-            numerator, denominator = fl
-            value = numerator / denominator
-            formatted = f"{value:.1f}".rstrip("0").rstrip(".")
-            tags["ex:fl"] = f"{formatted}mm"
+            tags["ex:fl"] = f"{_rational(fl)}mm"
         except Exception:  # noqa: BLE001, S110 -- a bad field yields no tag
             pass
 

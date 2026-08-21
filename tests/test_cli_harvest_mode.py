@@ -1,9 +1,3 @@
-# ==============================================
-# ls-sql -- filesystem query engine
-# East Van AI -- AI for the rest of us!
-# https://github.com/east-van-ai
-# ==============================================
-
 """
 CLI tests for lssql.
 two approaches, both demonstrated intentionally:
@@ -29,8 +23,7 @@ import subprocess
 from io import StringIO
 from unittest.mock import patch
 
-import pytest
-
+from lssql.args import EXIT_OK
 from lssql.cli import main
 from tests.test_cli import _ls_sql_bin, skip_on_ci
 
@@ -51,7 +44,7 @@ def test_cli_harvest_mode_option_a_directory_as_arg(tmp_path):
         text=True,
     )
 
-    assert result.returncode == 0
+    assert result.returncode == EXIT_OK
     marked = next(tmp_path.glob("photo^^^*^^^.jpg"))
     assert marked is not None
 
@@ -70,7 +63,7 @@ def test_cli_harvest_mode_option_a_filename_as_arg(tmp_path):
         text=True,
     )
 
-    assert result.returncode == 0
+    assert result.returncode == EXIT_OK
     marked = next(tmp_path.glob("photo^^^*^^^.jpg"))
     assert marked is not None
 
@@ -87,11 +80,10 @@ def test_cli_harvest_mode_option_b_directory_as_arg(tmp_path, freeze_date):
     with (
         patch("sys.stdout", new_callable=StringIO),
         patch("sys.argv", ["ls-sql", "harvest", str(tmp_path), "--commit"]),
-        pytest.raises(SystemExit) as exc,
     ):
-        main()
+        code = main()
 
-    assert exc.value.code == 0
+    assert code == EXIT_OK
     marked = next(tmp_path.glob("photo^^^*^^^.jpg"))
     assert marked is not None
 
@@ -108,11 +100,10 @@ def test_cli_harvest_mode_option_b_filename_as_arg(tmp_path, freeze_date):
             "sys.argv",
             ["ls-sql", "harvest", str(tmp_path / "photo.jpg"), "--commit"],
         ),
-        pytest.raises(SystemExit) as exc,
     ):
-        main()
+        code = main()
 
-    assert exc.value.code == 0
+    assert code == EXIT_OK
     marked = next(tmp_path.glob("photo^^^*^^^.jpg"))
     assert marked is not None
 
@@ -133,11 +124,10 @@ def test_cli_harvest_mode_option_b_directory_containing_hidden_files(
     with (
         patch("sys.stdout", new_callable=StringIO) as mock_out,
         patch("sys.argv", ["ls-sql", "harvest", str(tmp_path), "--commit"]),
-        pytest.raises(SystemExit) as exc,
     ):
-        main()
+        code = main()
 
-    assert exc.value.code == 0
+    assert code == EXIT_OK
     assert "1 file(s) committed, 0 skipped" in mock_out.getvalue()
     assert not (tmp_path / "photo.jpg").exists()  # renamed by harvester
     assert (tmp_path / ".hidden-image.jpg").exists()
@@ -158,10 +148,59 @@ def test_cli_harvest_mode_option_b_hidden_filename(tmp_path, freeze_date):
             "sys.argv",
             ["ls-sql", "harvest", str(tmp_path / ".photo.jpg"), "--commit"],
         ),
-        pytest.raises(SystemExit) as exc,
     ):
-        main()
+        code = main()
 
-    assert exc.value.code == 0
+    assert code == EXIT_OK
     assert "0 file(s) committed, 0 skipped" in mock_out.getvalue()
     assert (tmp_path / ".photo.jpg").exists()
+
+
+# -- issue #28: malformed stems are never rewritten --
+
+
+def test_cli_harvest_mode_option_b_malformed_stem_is_skipped(tmp_path, freeze_date):
+    """
+    main(): harvest skips a stem whose caret run is not a multiple of three.
+
+    regression for malformed stems parse issue. the seven-caret name used to harvest
+    successfully and emit a four-caret one, manufacturing the shape that
+    let set destroy the comment text.
+    """
+    seven = "0001-01234^^^^^^^it-is-blue.jpg"
+    four = "0001-01234^^^^it-is-blue.jpg"
+    (tmp_path / seven).write_text("fake image content")
+    (tmp_path / four).write_text("other fake content")
+
+    mock_out = StringIO()
+    with (
+        patch("sys.stdout", new=mock_out),
+        patch("sys.argv", ["ls-sql", "harvest", str(tmp_path), "--commit"]),
+    ):
+        code = main()
+
+    assert code == EXIT_OK
+    assert "0 file(s) committed, 2 skipped" in mock_out.getvalue()
+    assert (tmp_path / seven).exists()
+    assert (tmp_path / four).exists()
+
+
+def test_cli_harvest_mode_option_b_empty_tag_section_still_harvests(
+    tmp_path, freeze_date
+):
+    """
+    main(): a six-caret stem is well-formed and still harvests.
+
+    guards the rule against overreach.
+    """
+    (tmp_path / "0001-01234^^^^^^it-is-blue.jpg").write_text("fake image content")
+
+    with (
+        patch("sys.stdout", new_callable=StringIO),
+        patch("sys.argv", ["ls-sql", "harvest", str(tmp_path), "--commit"]),
+    ):
+        code = main()
+
+    assert code == EXIT_OK
+    marked = next(tmp_path.glob("0001-01234^^^ls:*^^^it-is-blue.jpg"))
+    assert marked is not None

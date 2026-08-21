@@ -1,9 +1,3 @@
-# ==============================================
-# East Van AI -- AI for the rest of us!
-# https://github.com/east-van-ai
-# contact: east-van-ai@proton.me
-# ==============================================
-
 """
 ls-sql list -- read filenames and print them, optionally filtered.
 
@@ -21,12 +15,13 @@ no FROM clause: there is only one thing to query.
 Options: --query, -R
 """
 
-import os
 import sys
 
-from lssql.parser import build_file_path, parse_filename, should_skip
+from lssql.args import EXIT_ERROR, EXIT_OK
+from lssql.parser import build_file_path, parse_filename
 from lssql.query import run_query
 from lssql.scanner import scan_directory
+from lssql.shared import resolve
 
 
 def run_list_mode(
@@ -35,29 +30,20 @@ def run_list_mode(
     recursive: bool = False,
 ) -> int:
     """list parsed rows under target, filtered by query when given."""
-    if os.path.isfile(target):
-        directory = os.path.dirname(target) or "."
-        filename = os.path.basename(target) or ""
-        if should_skip(filename):
-            rows = []
-        else:
-            parsed = parse_filename(filename)
-            parsed["path"] = directory
-            rows = [parsed]
-    else:
-        rows = scan_directory(target, recursive=recursive)
+    rows = resolve(
+        target,
+        lambda directory, filename: {**parse_filename(filename), "path": directory},
+        lambda path: scan_directory(path, recursive=recursive),
+    )
 
     if query:
-        matched, error = run_query(query, rows)
+        rows, error = run_query(query, rows)
         if error:
             print(f"ls-sql: {error}", file=sys.stderr)
-            return 1
-        matched.sort(key=lambda d: d["filename"].lower())
-        for row in matched:
-            print(build_file_path(row))
-    else:
-        rows.sort(key=lambda d: d["filename"].lower())
-        for row in rows:
-            print(build_file_path(row))
+            return EXIT_ERROR
 
-    return 0
+    rows.sort(key=lambda d: d["filename"].lower())
+    for row in rows:
+        print(build_file_path(row))
+
+    return EXIT_OK

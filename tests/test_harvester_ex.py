@@ -1,9 +1,3 @@
-# ==============================================
-# ls-sql -- filesystem query engine
-# East Van AI -- AI for the rest of us!
-# https://github.com/east-van-ai
-# ==============================================
-
 """
 tests for lssql.harvester_ex -- JPG EXIF metadata extraction.
 uses piexif to write real EXIF tags into tmp files.

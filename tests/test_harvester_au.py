@@ -1,9 +1,3 @@
-# ==============================================
-# ls-sql -- filesystem query engine
-# East Van AI -- AI for the rest of us!
-# https://github.com/east-van-ai
-# ==============================================
-
 """
 tests for lssql.harvester_au -- MP3 and M4A metadata extraction.
 uses mutagen to write real tags into tmp files.

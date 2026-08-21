@@ -1,13 +1,6 @@
-# ==============================================
-# ls-sql -- filesystem query engine
-# East Van AI -- AI for the rest of us!
-# https://github.com/east-van-ai
-# ==============================================
-
 import os
 
-SEPARATOR = "^^^"
-
+from lssql.parser import SEPARATOR, is_hatfile_stem
 
 DEFAULT_HARVEST_EXTS = {
     ".jpg",
@@ -32,17 +25,27 @@ def sanitize_tag_value(value: str) -> str:
 
 
 def is_troublesome_name(filename: str) -> bool:
+    """
+    report whether a filename is one the harvester must not rewrite.
+    a stem that is not a Hatfile stem cannot be read back confidently,
+    so renaming it risks losing the part that did not parse.
+    """
     stem, _ = os.path.splitext(filename)
-    parts = stem.split(SEPARATOR)
-    return len(parts) > 3
+    return not is_hatfile_stem(stem, SEPARATOR)
 
 
 def is_already_harvested(filename: str) -> bool:
+    """
+    report whether a filename already carries a tag section.
+    a malformed stem is never 'already harvested': its tag part is a stray
+    caret run rather than tags, and treating it as tags is what let `set`
+    overwrite the section and drop the text.
+    """
     stem, _ = os.path.splitext(filename)
+    if not is_hatfile_stem(stem, SEPARATOR):
+        return False
     parts = stem.split(SEPARATOR)
     if len(parts) < 2:
-        return False
-    if parts[1] in ["^", "^^"]:
         return False
     return len(parts[1]) > 0
 

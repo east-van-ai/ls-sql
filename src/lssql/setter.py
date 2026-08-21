@@ -1,11 +1,5 @@
-# ==============================================
-# ls-sql -- filesystem query engine
-# East Van AI -- AI for the rest of us!
-# https://github.com/east-van-ai
-# ==============================================
-
 """
---set mode -- write user-defined tags directly into filenames.
+set -- write user-defined tags directly into filenames.
 
 operators:
     ud:key=value     overwrite -- replaces existing value
@@ -25,8 +19,9 @@ protected:
 import os
 
 from lssql.harvester import harvest_file
-from lssql.harvester_util import SEPARATOR, is_already_harvested
-from lssql.parser import parse_filename, should_skip
+from lssql.harvester_util import is_already_harvested
+from lssql.parser import join_hatfile_name, parse_filename
+from lssql.scanner import walk_files
 
 # -- validation -----------------------------------------------------------
 
@@ -48,11 +43,11 @@ def parse_set_string(tag_string: str) -> tuple[list[dict], str | None]:
     each operation is a dict:
         {'op': '=',     'key': 'ud:fruit',      'values': {'banana'}}
         {'op': '+=',    'key': 'ud:weather',    'values': {'rainy'}}
-        {'op': '-=',    'key': 'ud:weather',    'values': {'rainy']}
+        {'op': '-=',    'key': 'ud:weather',    'values': {'rainy'}}
         {'op': '==',    'key': 'ud:old',        'values': {''}}
     """
     if not tag_string or not tag_string.strip():
-        return [], "empty --set string"
+        return [], "empty --tags string"
 
     ops = []
 
@@ -75,13 +70,13 @@ def parse_set_string(tag_string: str) -> tuple[list[dict], str | None]:
             key, value = part.split("=", 1)
             op = "="
         else:
-            return [], f"malformed --set expression: '{part}'"
+            return [], f"malformed --tags expression: '{part}'"
 
         key = key.strip()
         value = value.strip()
 
         if not key:
-            return [], f"malformed --set expression: '{part}'"
+            return [], f"malformed --tags expression: '{part}'"
 
         if ":" not in key:
             return [], f"missing namespace in key: '{key}' -- use ud:key=value"
@@ -97,7 +92,7 @@ def parse_set_string(tag_string: str) -> tuple[list[dict], str | None]:
         ops.append({"op": op, "key": key, "values": values})
 
     if not ops:
-        return [], "no valid operations in --set string"
+        return [], "no valid operations in --tags string"
 
     return ops, None
 
@@ -168,11 +163,7 @@ def rebuild_filename(parsed: dict, updated_tags: dict) -> str:
     tag_parts = [f"{k}={v}" for k, v in updated_tags.items()]
     tags_str = "^".join(tag_parts)
 
-    if comment:
-        return f"{original}{SEPARATOR}{tags_str}{SEPARATOR}{comment}{ext}"
-    elif tags_str:
-        return f"{original}{SEPARATOR}{tags_str}{SEPARATOR}{ext}"
-    return f"{original}{ext}"
+    return join_hatfile_name(original, tags_str, comment, ext)
 
 
 # -- file operations ------------------------------------------------------
@@ -246,26 +237,10 @@ def set_tags_directory(
     apply tag operations to all files in a directory.
     harvest-first per file if not yet harvested.
     """
-    results = []
-
-    with os.scandir(path) as entries:
-        for entry in entries:
-            if entry.is_dir(follow_symlinks=False):
-                if recursive:
-                    results.extend(
-                        set_tags_directory(entry.path, ops, commit, recursive)
-                    )
-                continue
-
-            if not entry.is_file():
-                continue
-
-            filename = entry.name
-
-            if should_skip(filename):
-                continue
-
-            results.append(set_file(path, filename, ops, commit))
+    results = [
+        set_file(directory, filename, ops, commit)
+        for directory, filename in walk_files(path, recursive=recursive)
+    ]
 
     results.sort(key=lambda d: (d["directory"], d["file"]))
     return results

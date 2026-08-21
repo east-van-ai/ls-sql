@@ -1,9 +1,3 @@
-# ==============================================
-# ls-sql -- filesystem query engine
-# East Van AI -- AI for the rest of us!
-# https://github.com/east-van-ai
-# ==============================================
-
 """
 tests for cli.stdin_has_content() and the piped-mode gate it drives.
 
@@ -20,8 +14,7 @@ import os
 from io import StringIO
 from unittest.mock import patch
 
-import pytest
-
+from lssql.args import EXIT_OK
 from lssql.cli import main, stdin_has_content
 
 # -- content: pipes, redirects, sockets --
@@ -110,11 +103,10 @@ def test_unattended_harvest_is_not_treated_as_piped(tmp_path, freeze_date):
         patch("sys.stdin", devnull),
         patch("sys.stdout", new_callable=StringIO) as mock_out,
         patch("sys.argv", ["ls-sql", "harvest", str(tmp_path)]),
-        pytest.raises(SystemExit) as exc,
     ):
-        main()
+        code = main()
 
-    assert exc.value.code == 0
+    assert code == EXIT_OK
     assert "dry-run" in mock_out.getvalue()
     assert "no files changed" in mock_out.getvalue()
 
@@ -131,11 +123,10 @@ def test_unattended_bare_invocation_prints_the_banner(tmp_path):
         patch("sys.stdin", devnull),
         patch("sys.stdout", new_callable=StringIO) as mock_out,
         patch("sys.argv", ["ls-sql"]),
-        pytest.raises(SystemExit) as exc,
     ):
-        main()
+        code = main()
 
-    assert exc.value.code == 0
+    assert code == EXIT_OK
     assert "ls-sql" in mock_out.getvalue()
 
 
@@ -150,11 +141,10 @@ def test_piped_paths_still_pass_through(tmp_path):
         patch("sys.stdin", reader),
         patch("sys.stdout", new_callable=StringIO) as mock_out,
         patch("sys.argv", ["ls-sql"]),
-        pytest.raises(SystemExit) as exc,
     ):
-        main()
+        code = main()
 
-    assert exc.value.code == 0
+    assert code == EXIT_OK
     assert "photo.jpg" in mock_out.getvalue()
 
 
@@ -168,9 +158,8 @@ def test_redirected_file_still_passes_through(tmp_path):
         patch("sys.stdin", handle),
         patch("sys.stdout", new_callable=StringIO) as mock_out,
         patch("sys.argv", ["ls-sql"]),
-        pytest.raises(SystemExit) as exc,
     ):
-        main()
+        code = main()
 
-    assert exc.value.code == 0
+    assert code == EXIT_OK
     assert "photo.jpg" in mock_out.getvalue()

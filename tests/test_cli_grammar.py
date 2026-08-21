@@ -1,9 +1,3 @@
-# ==============================================
-# ls-sql -- filesystem query engine
-# East Van AI -- AI for the rest of us!
-# https://github.com/east-van-ai
-# ==============================================
-
 """
 tests pinning the command-word grammar itself.
 
@@ -22,13 +16,18 @@ Option B throughout: main() called directly with mocked sys.argv.
 from io import StringIO
 from unittest.mock import patch
 
-import pytest
-
+from lssql.args import EXIT_ARGPARSE, EXIT_ERROR, EXIT_OK
 from lssql.cli import main
 
 
 def _run(argv, stdin_is_tty=False):
-    """call main() with argv; return (exit_code, stdout, stderr)."""
+    """call main() with argv; return (exit_code, stdout, stderr).
+
+    Two ways a code arrives. main() returns 0 and 1 itself, while argparse
+    raises SystemExit(2) from inside parse_args() and never comes back. Both
+    are caught here so a test can compare a code without caring which. See
+    DESIGN.md, "main() returns a code, it does not exit".
+    """
 
     class FakeTTY:
         def isatty(self):
@@ -42,10 +41,25 @@ def _run(argv, stdin_is_tty=False):
         patch("sys.stderr", new_callable=StringIO) as err,
         patch("sys.stdin", FakeTTY()),
         patch("sys.argv", ["ls-sql"] + argv),
-        pytest.raises(SystemExit) as exc,
     ):
-        main()
-    return exc.value.code, out.getvalue(), err.getvalue()
+        try:
+            code = main()
+        except SystemExit as exit_call:
+            code = exit_call.code
+    return code, out.getvalue(), err.getvalue()
+
+
+# -- the numbers behind the names --
+
+
+def test_exit_codes_are_the_documented_numbers():
+    """the three codes are 0, 1 and 2, whatever they are called.
+
+    Every other assertion here compares against a name, so the names could all
+    drift together and nothing would fail. This is the one place the numbers
+    themselves are pinned. See DESIGN.md, "Exit codes".
+    """
+    assert (EXIT_OK, EXIT_ERROR, EXIT_ARGPARSE) == (0, 1, 2)
 
 
 # -- the command word owns sys.argv[1] --
@@ -55,7 +69,7 @@ def test_command_must_come_first(tmp_path):
     """a flag before the command word is a usage error, not a reordering."""
     code, _, err = _run(["--commit", "harvest", str(tmp_path)])
 
-    assert code == 1
+    assert code == EXIT_ERROR
     assert "the command must come right after 'ls-sql'" in err
     assert "'--commit' first" in err
 
@@ -64,7 +78,7 @@ def test_unknown_command_is_an_argparse_error(tmp_path):
     """an unrecognised command word exits 2, argparse's own error."""
     code, _, err = _run(["badcmd", str(tmp_path)])
 
-    assert code == 2
+    assert code == EXIT_ARGPARSE
     assert "invalid choice" in err
 
 
@@ -72,7 +86,7 @@ def test_no_command_word_at_all(tmp_path):
     """`ls-sql .` is a usage error: there is no default command."""
     code, _, err = _run([str(tmp_path)])
 
-    assert code == 2
+    assert code == EXIT_ARGPARSE
     assert "invalid choice" in err
 
 
@@ -89,7 +103,7 @@ def test_path_is_not_back_filled_from_later_tokens(tmp_path):
     """
     code, _, err = _run(["harvest", "--commit", str(tmp_path)])
 
-    assert code == 1
+    assert code == EXIT_ERROR
     assert "a path is required right after the command" in err
 
 
@@ -99,7 +113,7 @@ def test_path_right_after_the_command_is_accepted(tmp_path):
 
     code, out, _ = _run(["harvest", str(tmp_path), "--commit"])
 
-    assert code == 0
+    assert code == EXIT_OK
     assert "committed" in out
 
 
@@ -112,7 +126,7 @@ def test_missing_path_is_an_ls_sql_error(tmp_path):
     """
     code, _, err = _run(["harvest", "--commit"])
 
-    assert code == 1
+    assert code == EXIT_ERROR
     assert "a path is required right after the command" in err
     assert "Usage: ls-sql list|harvest|set|verify|reset PATH" in err
     # compact USAGE only -- never the full argparse help dump
@@ -128,7 +142,7 @@ def test_bare_command_is_a_help_request():
     """
     code, out, _ = _run(["harvest"], stdin_is_tty=True)
 
-    assert code == 0
+    assert code == EXIT_OK
     assert "ls-sql harvest" in out
 
 
@@ -154,7 +168,7 @@ def test_commit_is_rejected_for_list(tmp_path):
     """list never renames, so --commit is an error rather than ignored."""
     code, _, err = _run(["list", str(tmp_path), "--commit"])
 
-    assert code == 1
+    assert code == EXIT_ERROR
     assert "--commit is not an option of 'list'" in err
 
 
@@ -162,7 +176,7 @@ def test_query_is_rejected_for_harvest(tmp_path):
     """--query belongs to list."""
     code, _, err = _run(["harvest", str(tmp_path), "--query", "SELECT * WHERE a='b'"])
 
-    assert code == 1
+    assert code == EXIT_ERROR
     assert "--query is not an option of 'harvest'" in err
 
 
@@ -170,7 +184,7 @@ def test_ext_is_rejected_for_set(tmp_path):
     """--ext belongs to harvest; set selects by path or hash."""
     code, _, err = _run(["set", str(tmp_path), "--tags", "ud:a=1", "--ext", "jpg"])
 
-    assert code == 1
+    assert code == EXIT_ERROR
     assert "--ext is not an option of 'set'" in err
 
 
@@ -178,7 +192,7 @@ def test_fh_is_rejected_for_verify(tmp_path):
     """--fh belongs to set."""
     code, _, err = _run(["verify", str(tmp_path), "--fh", "abc123"])
 
-    assert code == 1
+    assert code == EXIT_ERROR
     assert "--fh is not an option of 'verify'" in err
 
 
@@ -186,7 +200,7 @@ def test_set_requires_tags(tmp_path):
     """set without --tags has nothing to write."""
     code, _, err = _run(["set", str(tmp_path)])
 
-    assert code == 1
+    assert code == EXIT_ERROR
     assert "set requires --tags" in err
 
 
@@ -201,7 +215,7 @@ def test_shared_options_are_accepted_everywhere(tmp_path):
         ["reset", str(tmp_path), "-R", "--verbose"],
     ):
         code, _, err = _run(argv)
-        assert code == 0, f"{argv} failed: {err}"
+        assert code == EXIT_OK, f"{argv} failed: {err}"
 
 
 # -- paths that do not exist --
@@ -211,5 +225,5 @@ def test_missing_directory_is_an_ls_sql_error(tmp_path):
     """a path that is neither a file nor a directory errors, exit 1."""
     code, _, err = _run(["list", str(tmp_path / "nope")])
 
-    assert code == 1
+    assert code == EXIT_ERROR
     assert "directory or file not found" in err

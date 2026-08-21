@@ -1,14 +1,10 @@
-# ==============================================
-# ls-sql -- filesystem query engine
-# East Van AI -- AI for the rest of us!
-# https://github.com/east-van-ai
-# ==============================================
-
 """
 tests for lssql.harvester with pytest.
 * 'tmp_path' -- a built-in pytest fixture. fresh temporary directory per test, cleans up automatically.
 * 'freeze_date' -- a custom pytest fixture defined in 'conftest.py'
 """
+
+from unittest.mock import patch
 
 from lssql.harvester import (
     build_harvested_filename,
@@ -283,6 +279,54 @@ def test_harvest_directory_max_files_one(tmp_path):
     results = harvest_directory(str(tmp_path), commit=False, max_files=1)
 
     assert len(results) == 1
+
+
+def test_harvest_directory_max_files_holds_across_a_recursive_walk(tmp_path):
+    """the cap is a total, not a budget divided among directories."""
+    (tmp_path / "note1.txt").write_text("x")
+    (tmp_path / "note2.txt").write_text("x")
+    sub = tmp_path / "sub"
+    sub.mkdir()
+    for i in range(5):
+        (sub / f"img{i}.jpg").write_text("x")
+
+    results = harvest_directory(
+        str(tmp_path), commit=False, recursive=True, max_files=2
+    )
+
+    actioned = [r for r in results if r["status"] != "skipped"]
+    assert len(actioned) == 2
+
+
+def test_harvest_directory_max_files_reports_the_files_it_skipped(tmp_path):
+    """a skipped file is reported and does not spend the budget."""
+    for name in ("note.txt", "a.jpg", "b.jpg", "c.jpg"):
+        (tmp_path / name).write_text("x")
+
+    # os.scandir promises no order, so the walk is pinned: the skipped file
+    # has to be seen before the cap is reached for this to mean anything.
+    walk = [(str(tmp_path), name) for name in ("note.txt", "a.jpg", "b.jpg", "c.jpg")]
+
+    with patch("lssql.harvester.walk_files", return_value=iter(walk)):
+        results = harvest_directory(str(tmp_path), commit=False, max_files=2)
+
+    assert {r["file"]: r["status"] for r in results} == {
+        "note.txt": "skipped",
+        "a.jpg": "dry-run",
+        "b.jpg": "dry-run",
+    }
+
+
+def test_harvest_directory_without_a_cap_walks_everything(tmp_path):
+    for name in ("note.txt", "a.jpg", "b.jpg", "c.jpg"):
+        (tmp_path / name).write_text("x")
+
+    walk = [(str(tmp_path), name) for name in ("note.txt", "a.jpg", "b.jpg", "c.jpg")]
+
+    with patch("lssql.harvester.walk_files", return_value=iter(walk)):
+        results = harvest_directory(str(tmp_path), commit=False, max_files=0)
+
+    assert len(results) == 4
 
 
 # -- remove_tags_from_filename --

@@ -1,9 +1,3 @@
-# ==============================================
-# East Van AI -- AI for the rest of us!
-# https://github.com/east-van-ai
-# contact: east-van-ai@proton.me
-# ==============================================
-
 """
 ls-sql reset -- strip harvested tags and restore original filenames.
 
@@ -21,8 +15,8 @@ Dry run by default. --commit is the single escalation that renames.
 Options: --commit, --dry-run, -R, --verbose
 """
 
-from lssql.cli_util import print_rename_results, resolve
 from lssql.harvester import remove_tags_from_directory, remove_tags_from_filename_commit
+from lssql.shared import print_rename_results, resolve
 
 
 def run_reset_mode(

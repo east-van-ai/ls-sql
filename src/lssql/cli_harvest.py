@@ -1,9 +1,3 @@
-# ==============================================
-# East Van AI -- AI for the rest of us!
-# https://github.com/east-van-ai
-# contact: east-van-ai@proton.me
-# ==============================================
-
 """
 ls-sql harvest -- read file metadata and encode it into the filename.
 
@@ -20,8 +14,8 @@ Idempotent: already harvested files are skipped.
 Options: --commit, --dry-run, -R, --verbose, --ext, --max
 """
 
-from lssql.cli_util import print_rename_results, resolve
 from lssql.harvester import harvest_directory, harvest_file
+from lssql.shared import print_rename_results, resolve
 
 
 def run_harvest_mode(
