@@ -6,7 +6,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
-## [v0.15.1] - 2026-08-21
+## [0.15.2] - 2026-08-23
+
+### Added
+
+- `ls-sql --version` prints the installed version and exits 0. Argparse's
+  version action carries it, so it answers wherever it sits on the line, and
+  the command it was given never runs.
+
+### Changed
+
+- A second bare word after PATH is now ls-sql's own error, exit 1, and it names
+  the stray token. Argparse used to answer it with `unrecognized arguments`,
+  exit 2.
+
+## [0.15.1] - 2026-08-21
 
 ### Changed
 
@@ -58,7 +72,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   matches `.github/**/*.yaml`, but the file was named `ci.yml`, so it was
   being weeded out.
 
-## [v0.15.0] - 2026-08-06
+## [0.15.0] - 2026-08-06
 
 The version line returns to `0.x`, resuming after `v0.14.1`. The `v1.0.0` and
 `v1.1.0` tags stay in git history; they were premature.
@@ -101,7 +115,7 @@ The version line returns to `0.x`, resuming after `v0.14.1`. The `v1.0.0` and
   mode. Files sharing a basename across directories were indistinguishable in
   the preview.
 
-## [v1.1.0] - 2026-07-19
+## [1.1.0] - 2026-07-19
 
 ### Fixed
 
@@ -124,7 +138,7 @@ The version line returns to `0.x`, resuming after `v0.14.1`. The `v1.0.0` and
 - README quick start gained tag-presence (`IS NOT NULL`) and `CONTAINS` query examples
 - Planned-feature references say v1.x instead of v1.1; install URL points at the east-van-ai org
 
-## [v1.0.0] - 2026-05-19
+## [1.0.0] - 2026-05-19
 
 ### Added
 
@@ -134,7 +148,7 @@ The version line returns to `0.x`, resuming after `v0.14.1`. The `v1.0.0` and
 
 - Updated documents for public release
 
-## [v0.14.1] - 2026-05-14
+## [0.14.1] - 2026-05-14
 
 ### Added
 
@@ -146,7 +160,7 @@ The version line returns to `0.x`, resuming after `v0.14.1`. The `v1.0.0` and
 - semicolon is now the standard delimiter for --fh and --ext args; comma still accepted for both
 - HATFILE.md updated to reflect new tag definitions
 
-## [v0.14.0] - 2026-05-13
+## [0.14.0] - 2026-05-13
 
 ### Added
 
@@ -160,7 +174,7 @@ The version line returns to `0.x`, resuming after `v0.14.1`. The `v1.0.0` and
 - refactor: --fh logic extracted from main() into run_set_mode()
 - refactor: --query logic extracted from main() into run_query_mode()
 
-## [v0.13.0] - 2026-05-12
+## [0.13.0] - 2026-05-12
 
 ### Added
 

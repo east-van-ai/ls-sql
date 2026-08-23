@@ -13,10 +13,11 @@ See DESIGN.md, "CLI grammar" and "Positions are decided, not inferred".
 Option B throughout: main() called directly with mocked sys.argv.
 """
 
+from importlib import metadata
 from io import StringIO
 from unittest.mock import patch
 
-from lssql.args import EXIT_ARGPARSE, EXIT_ERROR, EXIT_OK
+from lssql.args import EXIT_ARGPARSE, EXIT_ERROR, EXIT_OK, installed_version
 from lssql.cli import main
 
 
@@ -60,6 +61,63 @@ def test_exit_codes_are_the_documented_numbers():
     themselves are pinned. See DESIGN.md, "Exit codes".
     """
     assert (EXIT_OK, EXIT_ERROR, EXIT_ARGPARSE) == (0, 1, 2)
+
+
+# -- --version answers wherever it lands --
+
+
+def test_version_prints_the_installed_version():
+    """`ls-sql --version` prints one line and exits 0, like the banner does.
+
+    The 0 arrives as SystemExit from argparse's version action rather than as a
+    return value, which _run() flattens. See DESIGN.md, "Exit codes".
+    """
+    code, out, _ = _run(["--version"])
+
+    assert code == EXIT_OK
+    assert out.strip().startswith("ls-sql ")
+    assert len(out.strip().splitlines()) == 1
+
+
+def test_version_answers_after_a_command_word():
+    """a command word in front of it changes nothing, on purpose.
+
+    The house rule keeps the flag off the subparsers so a command cannot answer
+    it. ls-sql's parser is flat, and a version request means the same thing
+    everywhere, so it is answered rather than scoped away. See DESIGN.md,
+    "`--version` reads the installed metadata".
+    """
+    code, out, _ = _run(["harvest", ".", "--version"])
+
+    assert code == EXIT_OK
+    assert out.strip().startswith("ls-sql ")
+
+
+def test_version_does_not_run_the_command(tmp_path):
+    """parsing ends at the flag, so the command it was given never runs.
+
+    The directory holds a file `list` would print a row for. Only the version
+    line comes back.
+    """
+    (tmp_path / "photo.png").write_text("x")
+
+    code, out, _ = _run(["list", str(tmp_path), "--version"])
+
+    assert code == EXIT_OK
+    assert "photo.png" not in out
+    assert len(out.strip().splitlines()) == 1
+
+
+def test_version_lookup_answers_when_nothing_is_installed():
+    """a tree with no installed distribution gets an answer, not an exception.
+
+    Patched rather than staged: a built tree keeps src/ls_sql.egg-info beside
+    the package and metadata discovery reads it, so the branch is unreachable
+    here on its own. It is reached on every command, not just this flag, since
+    the lookup runs when the parser is built.
+    """
+    with patch.object(metadata, "version", side_effect=metadata.PackageNotFoundError):
+        assert installed_version() == "unknown (not installed)"
 
 
 # -- the command word owns sys.argv[1] --
@@ -117,6 +175,22 @@ def test_path_right_after_the_command_is_accepted(tmp_path):
     assert "committed" in out
 
 
+def test_a_second_bare_word_is_an_ls_sql_error(tmp_path):
+    """
+    the slot holds one path, and a word behind it is ls-sql's own error.
+
+    Argparse answers this with `unrecognized arguments`, exit 2, which reports
+    the token without saying what the grammar wanted in its place. Reading the
+    whole run of bare words ahead of the first flag is what lets ls-sql name it
+    instead.
+    """
+    code, _, err = _run(["harvest", str(tmp_path), "extra"])
+
+    assert code == EXIT_ERROR
+    assert "harvest takes nothing after PATH: 'extra'" in err
+    assert "Usage: ls-sql list|harvest|set|verify|reset PATH" in err
+
+
 def test_missing_path_is_an_ls_sql_error(tmp_path):
     """
     a command with options but no path errors, exit 1, with compact USAGE.
@@ -131,6 +205,25 @@ def test_missing_path_is_an_ls_sql_error(tmp_path):
     assert "Usage: ls-sql list|harvest|set|verify|reset PATH" in err
     # compact USAGE only -- never the full argparse help dump
     assert "show this help message" not in err
+
+
+def test_usage_continuation_aligns_under_the_first_line():
+    """
+    the second usage line is indented by exactly the width of "Usage: ".
+
+    The prefix is printed in cli.py and the padding sits in args.py's USAGE, so
+    nothing else pins the pairing. Every other assertion here matches a
+    substring of the first line, which a prefix of a different width would
+    still satisfy while the block came out crooked.
+    """
+    _, _, err = _run(["harvest", "no-such-path"])
+
+    first, second = err.strip().splitlines()[-2:]
+    indent = len("Usage: ")
+
+    assert first.startswith("Usage: ls-sql")
+    assert second[:indent].isspace()
+    assert not second[indent].isspace()
 
 
 def test_bare_command_is_a_help_request():

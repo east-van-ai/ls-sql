@@ -177,9 +177,11 @@ ls-sql <command> PATH [options]
   not after some flag that happens to parse. There is no default command:
   `ls-sql .` is a usage error, not a listing.
 - **The path is a bare word, and it comes second.** Every command acts on one
-  directory or file, named in `sys.argv[2]`. `.` for the current directory.
-  argparse cannot be trusted with this slot on its own, so the position is
-  enforced on a single token. See "Positions are decided, not inferred" below.
+  directory or file, named in `sys.argv[2]`. `.` for the current directory. One
+  path, and nothing behind it: a second bare word is an error, not a token to
+  ignore. argparse cannot be trusted with this slot on its own, so the position
+  is read off the command line directly. See "Positions are decided, not
+  inferred" below.
 - **Options are scoped to their command.** `--ext` and `--max` belong to
   harvest, `--fh` and `--tags` to set, `--query` to list. Passing one to a
   command that has no use for it is an error, not something quietly ignored.
@@ -232,9 +234,53 @@ ls-sql <command> PATH [options]
 
   Only `0` and `1` ever come back from `main()`. Argparse hardcodes `2` inside
   `ArgumentParser.error()`, which calls `sys.exit()` itself, so that code
-  unwinds past `main()` rather than returning through it. Nothing on argparse's
-  public surface names the number or lets it be set, so `2` is a code to assert
-  against, never one to produce.
+  unwinds past `main()` rather than returning through it. The 0 from
+  `--version` arrives the same way, out of argparse's version action. Nothing
+  on argparse's public surface names the number or lets it be set, so `2` is a
+  code to assert against, never one to produce.
+
+### `--version` reads the installed metadata
+
+`ls-sql --version` prints the program name and the number on one line, then
+exits 0. The banner lists it with the other flags.
+
+```text
+$ ls-sql --version
+ls-sql 0.15.1
+```
+
+It is documentation, like the banner and the per-command docstrings, so it
+shares their exit code. Argparse's own `action="version"` carries it, sitting
+on the parser beside every other option. The action fires during parsing,
+ahead of the check for required positionals, which is what lets the flag
+answer with no command word in front of it. It calls `sys.exit(0)` itself, so
+that 0 unwinds past `main()` rather than returning through it. Argparse's exit
+2 is the only other code that arrives this way.
+
+A command word in front of it changes nothing:
+
+```text
+$ ls-sql harvest . --version
+ls-sql 0.15.1
+```
+
+The house rule keeps the flag off the subparsers, so that asking a command for
+the version is an unknown flag. ls-sql's parser is flat and has no subparsers
+to keep it off, so the action fires wherever the flag lands. Answering is the
+right outcome anyway. `--version` is not one of a command's options and it is
+absent from `COMMAND_OPTIONS`, because it asks the tool what it is. Scoping
+exists for a flag that means something to a command it was not given to, and
+`--commit` on `list` is the case it was written for: that one reads as a
+request to change files. A version request means the same thing everywhere,
+touches nothing, and ends the run where it stands, so no command has grounds
+to refuse it.
+
+The number itself lives in `pyproject.toml` and reaches the CLI through the
+installed distribution's metadata, never through a second copy in the source.
+The lookup runs whenever the parser is built, which is every invocation past a
+bare word, so an unguarded miss would take down every command rather than this
+one flag. A tree with no installed distribution to read gets
+`unknown (not installed)`.
 
 ### Positions are decided, not inferred
 
@@ -247,9 +293,19 @@ happily with the path set, even though the documented grammar puts the path
 immediately after the command. Accepting it would let the real grammar drift
 away from the written one, one convenience at a time.
 
-So the path is read from `sys.argv[2]` and nowhere else. A token argparse found
-somewhere else on the line is discarded. ls-sql does not go hunting for a path,
-and does not guess whether a stray word looks like one.
+So the path is read off the front of the command line and nowhere else.
+`leading_paths()` walks the tokens after the command and returns the run of bare
+words ahead of the first flag. The path is the first of them. What argparse
+resolved is never consulted. ls-sql does not go hunting for a path, and does not
+guess whether a stray word looks like one.
+
+Reading the whole run, rather than one token, is what makes a second bare word
+answerable. `ls-sql harvest . extra` is ls-sql's own error, exit 1, and it names
+`extra`. Left to argparse it is `unrecognized arguments`, exit 2, which reports
+the token without saying what the grammar wanted in its place. The
+parser therefore runs through `parse_known_args()`, so the leftover survives to
+reach that check. A leftover that starts with a dash goes straight back to
+argparse, which names a misspelled flag better than ls-sql can.
 
 The command word gets the same treatment for the same reason. argparse resolves
 which token is the positional correctly, whatever the interleaving, so a flag

@@ -51,7 +51,6 @@ def is_hatfile_stem(stem: str, separator: str = SEPARATOR) -> bool:
     a stray caret is the thing this catches. splitting on '^^^' alone is
     greedy from the left, so an odd caret stays glued to the front of the
     next field and '0001-01234^^^^it-is-blue' reads as tags of '^it-is-blue'.
-    see DESIGN.md, "What counts as a Hatfile stem".
     """
 
     parts = stem.split(separator)

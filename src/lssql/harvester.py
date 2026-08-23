@@ -133,7 +133,7 @@ def harvest_directory(
 
     max_files counts the files actioned. a skipped file is still reported and
     does not spend the budget, and the budget holds across the whole walk
-    rather than per directory. See DESIGN.md, "--max counts what it actions".
+    rather than per directory.
     """
     if max_files < 0:
         return []

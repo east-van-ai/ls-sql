@@ -1,17 +1,17 @@
 """Argument parsing for ls-sql's CLI grammar."""
 
 import argparse
+from importlib import metadata
 
 # Argparse hardcodes 2 in `ArgumentParser.error()`, which calls `sys.exit`
 # itself, so EXIT_ARGPARSE never returns through main() and is only asserted
-# against. See DESIGN.md, "Exit codes", for what the three cover.
+# against.
 EXIT_OK = 0
 EXIT_ERROR = 1
 EXIT_ARGPARSE = 2
 
 USAGE = (
-    "Usage: ls-sql list|harvest|set|verify|reset PATH [options]\n"
-    "       ls <dir> | ls-sql"
+    "ls-sql list|harvest|set|verify|reset PATH [options]\n" "       ls <dir> | ls-sql"
 )
 
 # options each command accepts beyond the shared ones. Anything outside its
@@ -40,19 +40,41 @@ OPTION_FLAGS = {
 }
 
 
+def installed_version():
+    """
+    return the version of the installed ls-sql distribution.
+
+    The literal lives in pyproject.toml and reaches the CLI through the
+    installed metadata, never through a second copy in the source.
+    """
+    try:
+        return metadata.version("ls-sql")
+    except metadata.PackageNotFoundError:
+        return "unknown (not installed)"
+
+
 def build_parser():
     """
     build ls-sql's single flat parser.
 
     Flat, not subparsers: the command and the path are ordinary positionals
-    whose slots main() pins against sys.argv directly. See DESIGN.md,
-    "Positions are decided, not inferred".
+    whose slots main() pins against sys.argv directly.
     """
     parser = argparse.ArgumentParser(
         prog="ls-sql",
         description="pipeable ls with SQL querying and metadata harvesting",
         # no abbreviations: --com must not silently mean --commit
         allow_abbrev=False,
+    )
+
+    # Registered here rather than read off sys.argv: the action fires during
+    # parsing, parser.parse_known_args(), ahead of the required-positional check,
+    # which is what lets the flag answer with no command word in front of it.
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=f"%(prog)s {installed_version()}",
+        help="print the installed version and exit",
     )
 
     parser.add_argument(
@@ -63,8 +85,9 @@ def build_parser():
 
     # the path each command acts on -- second bare word, registered after the
     # command so it renders second in the usage line. nargs="?" because a bare
-    # command word is a help request, not an error; main() enforces that the
-    # path really is sys.argv[2].
+    # command word is a help request, not an error. Registered so argparse
+    # consumes the token and prints [PATH]; the value it resolves is not the
+    # one main() acts on.
     parser.add_argument(
         "path",
         nargs="?",

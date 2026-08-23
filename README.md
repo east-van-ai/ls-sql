@@ -60,8 +60,8 @@ ls-sql <command> PATH [options]
 
 Five commands: `list`, `harvest`, `set`, `verify`, and `reset`. The command
 goes right after `ls-sql`, and the path right after the command. Run bare
-`ls-sql` for the built-in help, or a bare command word such as `ls-sql harvest`
-for that command's own.
+`ls-sql` for the built-in help, a bare command word such as `ls-sql harvest`
+for that command's own, and `ls-sql --version` for the installed version.
 
 ### The first five minutes
 

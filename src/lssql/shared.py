@@ -40,8 +40,6 @@ def print_rename_results(
     Anything that is not "skipped" counts as actioned. The rename modes emit
     renamed, restored, updated, dry-run, and skipped; ok and changed belong to
     verify, which prints its own shape.
-
-    See DESIGN.md, "Rename previews".
     """
     for r in results:
         status = r["status"]
