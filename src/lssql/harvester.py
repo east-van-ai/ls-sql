@@ -95,7 +95,7 @@ def harvest_file(
             "directory": directory,
             "file": filename,
             "status": "skipped",
-            "reason": f"filename too long to harvest ({len(stem)} chars, 80 max)",
+            "reason": f"stem too long to harvest ({len(stem)} chars, 80 max)",
         }
 
     new_filename = build_harvested_filename(filename, directory)

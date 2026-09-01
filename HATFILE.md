@@ -91,6 +91,20 @@ ud:*     Anything that does not overlap with native tags
 
 Stripping all tags between the first and second `^^^` restores the original filename exactly. Hatfile operations are fully reversible by design.
 
+## Any tool can read it
+
+The tags sit in the name, so a program that has never heard of Hatfile can still answer a question about them. No index, no plugin, no format support. Measured against 1,048,576 generated files on an internal SSD, all three of these return the same 65,536 matches:
+
+| | | |
+| --- | --- | --- |
+| `rg --files -g "*evai:fruit=apple*"` | 1.0 sec | ripgrep, walks in parallel |
+| `ls-sql list --query "SELECT * WHERE evai:fruit='apple'"` | 13.8 sec | Python, parses each name into tags |
+| `find -name "*evai:fruit=apple*"` | 17.6 sec | one thread, stats each entry |
+
+None of them knows what a Hatfile is. `find` is already on every Unix machine and needs nothing installed. ripgrep has to be installed, and repays it by answering thirteen times faster than the reference implementation. That spread is the point: the interface is a glob against a filename, so the convention outlives any single tool that reads it, this one included.
+
+Which tool leads depends on the disk. Repeat the same query against an external hard drive and ripgrep's advantage disappears: 5m26s against ls-sql's 6m08s, close enough that the two swap places between runs. Many threads keep a solid-state queue full, and a single head cannot be kept full at all. No reader is the right reader everywhere, and a convention only one of them could read would have to pick.
+
 ## Use cases
 
 - Photographer EXIF-rich JPG collections

@@ -10,6 +10,8 @@ EXIT_OK = 0
 EXIT_ERROR = 1
 EXIT_ARGPARSE = 2
 
+PROG = "ls-sql"
+
 USAGE = (
     "ls-sql list|harvest|set|verify|reset PATH [options]\n" "       ls <dir> | ls-sql"
 )
@@ -53,6 +55,15 @@ def installed_version():
         return "unknown (not installed)"
 
 
+def version_line():
+    """
+    return the program name and the installed version on one line.
+
+    Both spellings print this, so the two cannot drift apart.
+    """
+    return f"{PROG} {installed_version()}"
+
+
 def build_parser():
     """
     build ls-sql's single flat parser.
@@ -61,7 +72,7 @@ def build_parser():
     whose slots main() pins against sys.argv directly.
     """
     parser = argparse.ArgumentParser(
-        prog="ls-sql",
+        prog=PROG,
         description="pipeable ls with SQL querying and metadata harvesting",
         # no abbreviations: --com must not silently mean --commit
         allow_abbrev=False,
@@ -73,7 +84,7 @@ def build_parser():
     parser.add_argument(
         "--version",
         action="version",
-        version=f"%(prog)s {installed_version()}",
+        version=version_line(),
         help="print the installed version and exit",
     )
 

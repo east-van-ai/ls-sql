@@ -101,8 +101,8 @@ because they appear in filenames and character budget matters.
 ```text
 ls:hd    Harvest date (YYYYMMDD)
 ls:fh    File content hash (16 chars SHA256, content fingerprint)
-ls:dw   Image width
-ls:dh   Image height
+ls:dw    Image width
+ls:dh    Image height
 
 ex:dto   Exif DateTimeOriginal
 ex:cam   Camera model, slugified (e.g. canon-r5)
@@ -122,6 +122,7 @@ au:yr    Year
 zi:cnt   total entry count
 zi:ext   content types
 zi:dot   dot entry count
+zi:dir   directory count
 
 sd:mn    Model name
 sd:mh    Model hash
@@ -141,24 +142,13 @@ There is no filename hash tag. You cannot take a hash of a filename that
 already contains a hash. The result would never match anything on rebuild.
 The file content hash (`ls:fh`) is the stable fingerprint. That is enough.
 
-## Album system
-
-Albums are implemented entirely through user defined tags. No separate data
-structure. No database.
-
-[See Granular Details.](#album-system-and-ud-tags)
-
-### Multi select list
-
-[See Granular Details.](#repurpose-album-tags-for-multi-select-list)
-
 ## Configuration
 
 There is no configuration file. ls-sql runs on hardcoded defaults, and every
 knob it has is a command-line flag.
 
 - Harvest boundary: `^^^`, which is the Hatfile standard and not configurable
-- Max filename length: 200 characters
+- Longest stem the harvester will touch: 80 characters
 - Fields harvested: all available for the file type
 
 ## CLI reference
@@ -234,53 +224,9 @@ ls-sql <command> PATH [options]
 
   Only `0` and `1` ever come back from `main()`. Argparse hardcodes `2` inside
   `ArgumentParser.error()`, which calls `sys.exit()` itself, so that code
-  unwinds past `main()` rather than returning through it. The 0 from
-  `--version` arrives the same way, out of argparse's version action. Nothing
-  on argparse's public surface names the number or lets it be set, so `2` is a
-  code to assert against, never one to produce.
-
-### `--version` reads the installed metadata
-
-`ls-sql --version` prints the program name and the number on one line, then
-exits 0. The banner lists it with the other flags.
-
-```text
-$ ls-sql --version
-ls-sql 0.15.1
-```
-
-It is documentation, like the banner and the per-command docstrings, so it
-shares their exit code. Argparse's own `action="version"` carries it, sitting
-on the parser beside every other option. The action fires during parsing,
-ahead of the check for required positionals, which is what lets the flag
-answer with no command word in front of it. It calls `sys.exit(0)` itself, so
-that 0 unwinds past `main()` rather than returning through it. Argparse's exit
-2 is the only other code that arrives this way.
-
-A command word in front of it changes nothing:
-
-```text
-$ ls-sql harvest . --version
-ls-sql 0.15.1
-```
-
-The house rule keeps the flag off the subparsers, so that asking a command for
-the version is an unknown flag. ls-sql's parser is flat and has no subparsers
-to keep it off, so the action fires wherever the flag lands. Answering is the
-right outcome anyway. `--version` is not one of a command's options and it is
-absent from `COMMAND_OPTIONS`, because it asks the tool what it is. Scoping
-exists for a flag that means something to a command it was not given to, and
-`--commit` on `list` is the case it was written for: that one reads as a
-request to change files. A version request means the same thing everywhere,
-touches nothing, and ends the run where it stands, so no command has grounds
-to refuse it.
-
-The number itself lives in `pyproject.toml` and reaches the CLI through the
-installed distribution's metadata, never through a second copy in the source.
-The lookup runs whenever the parser is built, which is every invocation past a
-bare word, so an unguarded miss would take down every command rather than this
-one flag. A tree with no installed distribution to read gets
-`unknown (not installed)`.
+  unwinds past `main()` rather than returning through it. Nothing on argparse's
+  public surface names the number or lets it be set, so `2` is a code to assert
+  against, never one to produce.
 
 ### Positions are decided, not inferred
 
@@ -370,7 +316,7 @@ Two questions, two tests. Keep them apart:
 
 The house rule elsewhere is that a pipe plus an explicit flag is two input
 sources and should be an error. That rule does not survive contact with this
-grammar, and the reason is worth recording so it does not get "fixed" back.
+grammar.
 
 Every ls-sql command carries a path. If a pipe plus a command were an error,
 then any ls-sql call that merely *inherits* a piped stdin would fail:
@@ -432,8 +378,8 @@ reported but does not count against N.
 The cap holds across the whole walk. It is not a per-directory budget, so a
 recursive run renames at most N files no matter how the tree is shaped.
 
-Which files a capped run picks is a separate question, and an open one:
-`os.scandir` does not promise an order and ls-sql does not impose one.
+Which files a capped run picks is not specified. `os.scandir` does not promise
+an order, and ls-sql does not impose one.
 
 ### Reset mode
 
@@ -501,15 +447,33 @@ applies the tag. The user does not need to run `harvest` first.
 
 #### `--fh` flag
 
-Select files by content hash. Comma-separated list of 16-char SHA256 prefixes.
-Hash does not change when the filename changes, so it stays a stable selector
-across renames.
+Select files by content hash. A comma-separated list of `ls:fh` prefixes, each
+up to the full 16 characters. The hash does not change when the filename
+changes, so it stays a stable selector across renames.
 
 ```bash
 ls-sql set ~/photos --tags "ud:album=london" --fh "ab2c3d4e5f,9fs7g1h2i3" --commit
 ```
 
-Matches any harvested file whose `ls:fh` value starts with the given prefix.
+A file matches when its `ls:fh` value starts with one of the prefixes. Every
+prefix is measured on its own length, so a short one and a long one sit on the
+same line without interfering.
+
+#### Every `--fh` prefix has to find a file
+
+A prefix that matches nothing stops the run. The error names each prefix that
+found nothing, and no file is renamed, the files that did match included.
+
+`--fh` is a list of files the user believes are on disk. A prefix that finds
+none of them means one of those beliefs is wrong, and nothing on the command
+line says which way: a typo, a file already moved, a hash copied out of another
+directory. Renaming the rest and exiting 0 would report a batch as landed when
+part of it never ran.
+
+One rule then covers the whole flag. A run where every prefix misses already
+stopped with an error. A run where one prefix in three misses is the same
+situation, and answering it differently would tie the exit code to how many
+prefixes happened to be right.
 
 ### Flag rules
 
@@ -579,8 +543,8 @@ own summary line. Different question, different output.
 
 ### Language
 
-Python 3.x. Packaged with `pyproject.toml` for `pip install` and Homebrew
-cask distribution.
+Python 3.14 or newer, the floor declared in `pyproject.toml`. Built as a
+src-layout package and installed with `pipx` from the git repository.
 
 ### Key dependencies
 
@@ -708,8 +672,8 @@ implemented, however reasonable it sounds.
 When in doubt, warn and skip. Never guess.
 
 - **Malformed caret runs.** The stem is not a Hatfile. See below.
-- **Filename exceeds 200 chars.** The harvester warns before renaming, then
-  skips the file.
+- **Stem longer than 80 characters.** The harvester reports the file as
+  skipped and moves on, before any rename. See below.
 - **File already harvested.** The harvester sees `^^^` and skips. Idempotent.
 - **Duplicate files.** `ls:fh` catches identical content whatever the filename.
 
@@ -750,6 +714,25 @@ not rewrite.
 A tempting alternative is to treat any run of three or more carets as a
 boundary and discard the extras. That guesses, and the guess deletes carets the
 user typed.
+
+### The only length rule is 80 characters on the stem
+
+The harvester refuses any file whose stem is already 81 characters or longer.
+The file is reported as skipped, with the measured length beside the limit, and
+nothing is renamed.
+
+The check sits on the stem rather than on the finished name because the stem is
+the input. It is known before a single byte of metadata is read, so a file that
+cannot fit its tags costs nothing to refuse, and the number in the message is
+one the user can act on. Checking the result instead would mean building a name
+in order to throw it away, and reporting a length the user has no direct handle
+on.
+
+The 200-character total is a target, not a ceiling. Nothing counts up to it,
+and nothing counts up to the macOS limit of 255 bytes either. A stem inside the
+cap can still produce a name past 200 if the tag set and the comment are both
+generous. That is left to the user, who can see the result and shorten the
+comment.
 
 ## When to stop using ls-sql
 
@@ -1078,11 +1061,6 @@ ls-sql list ~/photos --query "SELECT * WHERE ex:cam='fujifilm-x-t5'" \
 
 Combining `list` and `set` in a single invocation is not supported either.
 Select with `--fh` or a path, and let dry-run show you what will change.
-
-#### Implementation note
-
-`setter.py` mirrors `scanner.py`, `parser.py`, and `query.py`. Plain nouns, no
-prefix. Tag manipulation logic lives there; `cli_set.py` drives it.
 
 ## Use of AI
 

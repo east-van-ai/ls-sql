@@ -95,12 +95,29 @@ def test_harvest_file_skips_caret_file():
     assert "caret" in result["reason"]
 
 
-def test_harvest_file_skips_long_filename():
+def test_harvest_file_skips_long_stem():
     long_filename = "photo-paris-france-" * 5 + ".jpg"  # 19 * 5 = 95
     result = harvest_file("/some/dir", long_filename, commit=False)
     assert result["status"] == "skipped"
-    assert "filename" in result["reason"]
+    assert "stem" in result["reason"]
     assert "95" in result["reason"]
+
+
+def test_harvest_file_cap_measures_the_stem_not_the_filename(tmp_path, freeze_date):
+    """
+    harvest_file(): the cap counts the stem, so a 79-character stem harvests
+    even though the filename behind it runs to 84.
+
+    The skip reason used to call this a filename limit, which this file
+    contradicts. It is the case that made the wording wrong rather than loose.
+    """
+    filename = "p" * 79 + ".jpeg"
+    assert len(filename) == 84
+
+    (tmp_path / filename).write_text("fake image content")
+    result = harvest_file(str(tmp_path), filename, commit=False)
+
+    assert result["status"] == "dry-run"
 
 
 # -- harvest_directory --

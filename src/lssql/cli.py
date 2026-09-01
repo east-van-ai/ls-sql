@@ -47,7 +47,6 @@
 # --tags TAGS     caret-separated tag operations     (set, required)
 # --fh HASHES     select files by ls:fh hash prefix  (set)
 # --query QUERY   SQL-like filter                    (list)
-# --version       print the installed version and exit
 #
 # Dry run by default: harvest/set/reset preview renames and change
 # nothing. --commit is the single escalation that actually renames.
@@ -69,7 +68,14 @@ import stat
 import sys
 
 from lssql import cli_harvest, cli_list, cli_reset, cli_set, cli_verify
-from lssql.args import EXIT_ERROR, EXIT_OK, USAGE, build_parser, out_of_scope_option
+from lssql.args import (
+    EXIT_ERROR,
+    EXIT_OK,
+    USAGE,
+    build_parser,
+    out_of_scope_option,
+    version_line,
+)
 from lssql.harvester_util import parse_ext_filter
 from lssql.parser import build_file_path, parse_filename, should_skip, split_path
 from lssql.setter import parse_set_string
@@ -158,6 +164,16 @@ def main() -> int:
             return EXIT_OK
 
         print(__doc__)
+        return EXIT_OK
+
+    # Ahead of the parser, like the banner above: a documentation request that
+    # answers without a path. Routing it through COMMAND_OPTIONS would require a
+    # PATH and would print the word in argparse's invalid-choice message. See
+    # CLAUDE.md, "The version surface is deliberately undocumented".
+    if sys.argv[1] == "version":
+        if len(sys.argv) > 2:
+            return usage_error(f"version takes nothing after it: {sys.argv[2]!r}")
+        print(version_line())
         return EXIT_OK
 
     parser = build_parser()

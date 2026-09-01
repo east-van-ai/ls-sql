@@ -827,7 +827,7 @@ def test_set_fh_no_match_exits_one(tmp_path, freeze_date):
         code = main()
 
     assert code == EXIT_ERROR
-    assert "no files matched --fh hashes" in mock_err.getvalue()
+    assert "no file matched --fh: 00000000" in mock_err.getvalue()
 
 
 def test_set_fh_prefix_matches_correct_file(tmp_path, freeze_date):
@@ -864,6 +864,128 @@ def test_set_fh_prefix_matches_correct_file(tmp_path, freeze_date):
     # beta untouched
     beta_tagged = list(tmp_path.glob("beta^^^*ud:label=alpha-only*"))
     assert not beta_tagged, "beta should not have been tagged"
+
+
+# -- --fh prefixes stand on their own --
+
+
+def _set_by_fh(tmp_path, fh_arg, extra=()):
+    """
+    run set --fh against tmp_path, and return (exit code, stdout, stderr).
+    """
+    argv = [
+        "ls-sql",
+        "set",
+        str(tmp_path),
+        "--tags",
+        "ud:x=1",
+        "--fh",
+        fh_arg,
+        *extra,
+    ]
+    mock_out, mock_err = StringIO(), StringIO()
+    with (
+        patch("sys.stdout", new=mock_out),
+        patch("sys.stderr", new=mock_err),
+        patch("sys.argv", argv),
+    ):
+        code = main()
+    return code, mock_out.getvalue(), mock_err.getvalue()
+
+
+def test_set_fh_mixed_length_prefixes_match_every_file(tmp_path, freeze_date):
+    """
+    main(): --fh prefixes of different lengths each match on their own length.
+
+    regression. The old predicate sliced every stored hash to the length of one
+    arbitrary member of a set, then compared for equality, so any prefix of a
+    different length was silently dead and the run still exited 0.
+    """
+    a = _harvest_file(
+        tmp_path, "alpha.jpg", content="content-alpha", freeze=freeze_date
+    )
+    b = _harvest_file(tmp_path, "beta.jpg", content="content-beta", freeze=freeze_date)
+
+    short, full = _extract_fh(a)[:4], _extract_fh(b)
+
+    code, out, _ = _set_by_fh(tmp_path, f"{short},{full}")
+
+    assert code == EXIT_OK
+    assert "2 file(s) dry-run" in out
+
+
+def test_set_fh_unmatched_prefix_stops_the_whole_run(tmp_path, freeze_date):
+    """
+    main(): one prefix matching nothing refuses the batch, matches included.
+    """
+    a = _harvest_file(
+        tmp_path, "alpha.jpg", content="content-alpha", freeze=freeze_date
+    )
+    good = _extract_fh(a)[:8]
+
+    code, out, err = _set_by_fh(tmp_path, f"{good},00000000", extra=("--commit",))
+
+    assert code == EXIT_ERROR
+    assert "no file matched --fh: 00000000" in err
+    assert "committed" not in out
+    assert list(tmp_path.glob("alpha^^^*")) == [a], "the matched file must be untouched"
+
+
+def test_set_fh_missing_prefixes_are_all_named(tmp_path, freeze_date):
+    """
+    main(): the error names every prefix that found nothing, in typed order.
+    """
+    _harvest_file(tmp_path, "alpha.jpg", content="content-alpha", freeze=freeze_date)
+
+    code, _, err = _set_by_fh(tmp_path, "ffffffff,00000000")
+
+    assert code == EXIT_ERROR
+    assert "no file matched --fh: ffffffff, 00000000" in err
+
+
+def test_set_fh_trailing_comma_is_not_a_wildcard(tmp_path, freeze_date):
+    """
+    main(): an empty prefix is dropped, not treated as matching every row.
+
+    "".startswith() is true for every hash, so a surviving empty prefix would
+    silently widen the selection to the whole directory.
+    """
+    a = _harvest_file(
+        tmp_path, "alpha.jpg", content="content-alpha", freeze=freeze_date
+    )
+    _harvest_file(tmp_path, "beta.jpg", content="content-beta", freeze=freeze_date)
+
+    code, out, _ = _set_by_fh(tmp_path, f"{_extract_fh(a)[:8]},")
+
+    assert code == EXIT_OK
+    assert "1 file(s) dry-run" in out
+
+
+def test_set_fh_only_separators_is_an_error(tmp_path, freeze_date):
+    """
+    main(): --fh with nothing usable in it is an error, not a match-all.
+    """
+    _harvest_file(tmp_path, "alpha.jpg", content="content-alpha", freeze=freeze_date)
+
+    code, _, err = _set_by_fh(tmp_path, ",")
+
+    assert code == EXIT_ERROR
+    assert "--fh needs at least one hash prefix" in err
+
+
+def test_set_fh_duplicate_prefixes_match_once(tmp_path, freeze_date):
+    """
+    main(): the same prefix twice selects its file once, and is not an error.
+    """
+    a = _harvest_file(
+        tmp_path, "alpha.jpg", content="content-alpha", freeze=freeze_date
+    )
+    prefix = _extract_fh(a)[:8]
+
+    code, out, _ = _set_by_fh(tmp_path, f"{prefix},{prefix}")
+
+    assert code == EXIT_OK
+    assert "1 file(s) dry-run" in out
 
 
 # -- malformed stems are never rewritten --

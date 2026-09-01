@@ -14,6 +14,10 @@ Un-harvested files are harvested first, silently. ls:fh is protected and
 silently skipped. Writes to any 2-letter namespace other than ud: are
 rejected, since those belong to the built-in harvesters.
 
+--fh takes comma-separated ls:fh prefixes of any length. A file matches when
+its hash starts with one of them. A prefix that matches nothing stops the run
+and is named, and no file is renamed.
+
 Dry run by default. --commit is the single escalation that renames.
 
 Options: --tags (required), --fh, --commit, --dry-run, -R, --verbose
@@ -27,6 +31,27 @@ from lssql.setter import set_file, set_tags_directory
 from lssql.shared import print_rename_results, resolve
 
 
+def row_fh(row: dict) -> str:
+    """return the ls:fh value stored in a scanned row, or an empty string."""
+    return row.get("tags", {}).get("ls:fh", "")
+
+
+def parse_fh_prefixes(fh: str) -> list[str]:
+    """
+    split an --fh argument into hash prefixes, in the order they were typed.
+
+    Order is kept so an error can name a miss where the user can find it, and
+    duplicates are dropped so it cannot name the same one twice. An empty
+    prefix would match every row, so it never survives the split.
+    """
+    prefixes = []
+    for raw in fh.replace(",", ";").split(";"):
+        prefix = raw.strip()
+        if prefix and prefix not in prefixes:
+            prefixes.append(prefix)
+    return prefixes
+
+
 def run_set_mode(
     target: str,
     ops: list[dict],
@@ -36,20 +61,33 @@ def run_set_mode(
     fh: str = "",
 ) -> int:
     """
-    target is either a file path or a directory path.
+    apply tag operations to files under target, and return an exit code.
+
+    target is a file path or a directory path. With --fh the directory is
+    scanned and files are picked by ls:fh prefix instead, which is the one
+    selection that does not follow the path. EXIT_ERROR when a prefix matched
+    nothing; otherwise EXIT_OK, dry-run and commit alike.
     """
     if fh:
-        # --fh mode: scan directory, match by hash, apply ops
-        hashes = {h.strip() for h in fh.replace(",", ";").split(";")}
-        rows = scan_directory(target, recursive=recursive)
-        targets = [
-            r
-            for r in rows
-            if r.get("tags", {}).get("ls:fh", "")[: len(next(iter(hashes)))] in hashes
-        ]
-        if not targets:
-            print("ls-sql: no files matched --fh hashes", file=sys.stderr)
+        prefixes = parse_fh_prefixes(fh)
+        if not prefixes:
+            print("ls-sql: --fh needs at least one hash prefix.", file=sys.stderr)
             return EXIT_ERROR
+
+        rows = scan_directory(target, recursive=recursive)
+
+        # Each prefix stands on its own: one that matches nothing stops the run
+        # rather than letting its neighbours rename a partial batch.
+        missing = [
+            p for p in prefixes if not any(row_fh(r).startswith(p) for r in rows)
+        ]
+        if missing:
+            print(
+                f"ls-sql: no file matched --fh: {', '.join(missing)}", file=sys.stderr
+            )
+            return EXIT_ERROR
+
+        targets = [r for r in rows if any(row_fh(r).startswith(p) for p in prefixes)]
 
         results = [set_file(r["path"], r["filename"], ops, commit) for r in targets]
         print_rename_results(

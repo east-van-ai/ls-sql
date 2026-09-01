@@ -60,8 +60,8 @@ ls-sql <command> PATH [options]
 
 Five commands: `list`, `harvest`, `set`, `verify`, and `reset`. The command
 goes right after `ls-sql`, and the path right after the command. Run bare
-`ls-sql` for the built-in help, a bare command word such as `ls-sql harvest`
-for that command's own, and `ls-sql --version` for the installed version.
+`ls-sql` for the built-in help, and a bare command word such as
+`ls-sql harvest` for that command's own.
 
 ### The first five minutes
 
@@ -142,7 +142,7 @@ You can also pick files by content hash rather than by name. The hash does not
 change when the name does, so this reaches a file you have since renamed.
 
 ```bash
-ls-sql set ~/photos --tags "ud:album=london-2006" --fh "ab2c3d;9fs7g1" --commit
+ls-sql set ~/photos --tags "ud:album=london-2006" --fh "ab2c3d,9fs7g1" --commit
 ```
 
 ### Living in a pipeline
@@ -246,8 +246,13 @@ ls-sql list . -R --query "SELECT * WHERE ls:fh IS NOT NULL" \
 
 ## Speed
 
-ls-sql reads filenames, not file contents. So the number of files is important,
-but the size of your library barely matters.
+ls-sql reads filenames, not file contents. `list` and `--query` never open a
+file, so the number of files is the whole cost and the size of your library is
+free. A hundred thousand raw photos answer faster than a million text files,
+because the photos are fewer.
+
+`harvest` and `verify` are the exception. Those two read bytes, so there the
+library size is the cost and the file count matters less.
 
 ### File count
 
@@ -257,15 +262,45 @@ but the size of your library barely matters.
 | Serious photographer | 20,000 - 50,000 files | power user |
 | SD enthusiast | 10,000 - 30,000 files | reasonable |
 | Obsessive SD user | 50,000+ files | okay buddy |
-| 100,000 files @ 1MB | ~100GB | you are an enterprise user |
+| 1,000,000 files | 14 seconds to query | you are showing off |
 
 ### Drive access speed
 
-| | |
-| --- | --- |
-| External HDD | ~20,000 files per second |
-| External USB SSD | ~50,000 files per second |
-| Internal SSD | ~100,000 files per second |
+| | | |
+| --- | --- | --- |
+| External HDD | ~2,900 files per second | measured |
+| External USB SSD | ~50,000 files per second | estimate |
+| Internal SSD | ~93,000 files per second | measured |
+
+The HDD number is the one to plan around. A spinning disk is roughly thirty
+times slower than internal flash here. Parallel walkers lose their advantage
+entirely on one: ripgrep is thirteen times faster than ls-sql on flash and
+level with it on a platter, because many threads can keep a solid-state queue
+full and a single head cannot.
+
+### At a million files
+
+One tree, 1,048,576 generated files, internal SSD on an M1 Air. All three
+return the same 65,536 matches.
+
+| | | |
+| --- | --- | --- |
+| `rg --files -g` | 1.0 sec | walks in parallel |
+| `ls-sql list --query` | 13.8 sec | parses every name into tags |
+| `find -name` | 17.6 sec | one thread, stats every entry |
+
+ripgrep has never heard of ls-sql and still answers the question, because the
+tags are sitting in the filename where any tool can reach them. Nothing needs
+teaching and nothing needs indexing.
+
+That is the convention doing its job. Scanning is what a search tool is for.
+ls-sql puts the tags there, checks them, and takes them away again.
+
+For reference, loading the same million names into SQLite and querying that
+takes 0.12 sec without an index, or 0.07 sec with one. Building it costs about
+14 sec and leaves a 191 MB file that goes wrong the moment anything is renamed
+outside the tool. Which makes an index a cache you can regenerate on demand,
+not a database you have to keep correct.
 
 ## Who it is for
 
@@ -277,7 +312,8 @@ but the size of your library barely matters.
 ## When to stop using ls-sql
 
 - More than 10 tags per file? Your problem is bigger than a filename can solve.
-- 100GB+ library? You need enterprise tooling and a budget to match.
+- 100GB+ library? Querying stays fast, but `harvest` and `verify` read every
+  byte, so budget real time for those two.
 - Need multi-user, networked, or cloud storage? Same answer.
 
 ## Errors

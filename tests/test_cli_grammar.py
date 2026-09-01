@@ -17,7 +17,14 @@ from importlib import metadata
 from io import StringIO
 from unittest.mock import patch
 
-from lssql.args import EXIT_ARGPARSE, EXIT_ERROR, EXIT_OK, installed_version
+from lssql.args import (
+    COMMAND_OPTIONS,
+    EXIT_ARGPARSE,
+    EXIT_ERROR,
+    EXIT_OK,
+    installed_version,
+    version_line,
+)
 from lssql.cli import main
 
 
@@ -70,7 +77,9 @@ def test_version_prints_the_installed_version():
     """`ls-sql --version` prints one line and exits 0, like the banner does.
 
     The 0 arrives as SystemExit from argparse's version action rather than as a
-    return value, which _run() flattens. See DESIGN.md, "Exit codes".
+    return value, which _run() flattens. Neither spelling is documented, so
+    these tests are the only record of the behaviour. See CLAUDE.md, "The
+    version surface is deliberately undocumented".
     """
     code, out, _ = _run(["--version"])
 
@@ -84,8 +93,7 @@ def test_version_answers_after_a_command_word():
 
     The house rule keeps the flag off the subparsers so a command cannot answer
     it. ls-sql's parser is flat, and a version request means the same thing
-    everywhere, so it is answered rather than scoped away. See DESIGN.md,
-    "`--version` reads the installed metadata".
+    everywhere, so it is answered rather than scoped away.
     """
     code, out, _ = _run(["harvest", ".", "--version"])
 
@@ -118,6 +126,72 @@ def test_version_lookup_answers_when_nothing_is_installed():
     """
     with patch.object(metadata, "version", side_effect=metadata.PackageNotFoundError):
         assert installed_version() == "unknown (not installed)"
+
+
+# -- `version` is the second spelling, intercepted ahead of the parser --
+
+
+def test_version_command_word_prints_the_installed_version():
+    """`ls-sql version` answers like the flag does, one line and exit 0."""
+    code, out, _ = _run(["version"])
+
+    assert code == EXIT_OK
+    assert out.strip().startswith("ls-sql ")
+    assert len(out.strip().splitlines()) == 1
+
+
+def test_both_spellings_print_the_identical_line():
+    """one helper builds the line, so the two cannot drift apart."""
+    _, word_out, _ = _run(["version"])
+    _, flag_out, _ = _run(["--version"])
+
+    assert word_out.strip() == flag_out.strip()
+    assert word_out.strip() == version_line()
+
+
+def test_version_command_word_takes_nothing_after_it():
+    """a bare word after `version` is a stray, exit 1, and it gets named."""
+    code, _, err = _run(["version", "extra"])
+
+    assert code == EXIT_ERROR
+    assert "version takes nothing after it" in err
+    assert "'extra'" in err
+    assert "Usage:" in err
+
+
+def test_version_command_word_rejects_a_trailing_flag_too():
+    """a flag is a stray as well: `version` takes no argument to modify.
+
+    One rule covers every trailing token rather than a second rule about which
+    kind it was.
+    """
+    code, _, err = _run(["version", "--commit"])
+
+    assert code == EXIT_ERROR
+    assert "version takes nothing after it" in err
+    assert "'--commit'" in err
+
+
+def test_version_is_not_a_parser_command():
+    """the word is intercepted in main(), never routed through argparse.
+
+    COMMAND_OPTIONS is both the option scope and the vocabulary `choices` is
+    built from. Adding `version` to it would require a PATH the command does
+    not take, and would print the word in argparse's invalid-choice message.
+    """
+    assert "version" not in COMMAND_OPTIONS
+
+
+def test_unknown_command_does_not_advertise_version():
+    """argparse's choices list stays clean, which is the point of intercepting.
+
+    The usage line above the error still shows `[--version]`, the same surface
+    --help exposes. The banner is the `Usage:` the house rule closes.
+    """
+    _, _, err = _run(["badcmd", "."])
+
+    assert "choose from" in err
+    assert "version" not in err.split("choose from")[1]
 
 
 # -- the command word owns sys.argv[1] --

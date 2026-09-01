@@ -7,9 +7,11 @@
 data/.gitkeep
 src/**/*.py
 tests/*.py
+tools/*.py
 CHANGELOG.md
 DESIGN.md
 HATFILE.md
 LICENSE
 pyproject.toml
 README.md
+RESULTS.md

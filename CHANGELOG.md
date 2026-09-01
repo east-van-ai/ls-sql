@@ -6,6 +6,41 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.16.0] - 2026-09-01
+
+### Added
+
+- `ls-sql version` prints the installed version, the same line `--version`
+  prints. A word or a flag after it is an error, exit 1.
+- `RESULTS.md`, a benchmark over 1,048,576 files measuring ls-sql against
+  `find`, ripgrep, and SQLite, on flash and on a spinning disk. It ships with
+  the `tools/` scripts that build the corpus, so the run can be repeated.
+
+### Changed
+
+- Neither version spelling is advertised. The banner's option list, README, and
+  DESIGN no longer mention `--version`.
+- `set --fh` refuses the whole run when a prefix matches no file, and names
+  that prefix. It used to rename whatever the other prefixes found and exit 0.
+- DESIGN.md carries decisions only and working notes are gone.
+- `zi:dir` joined the tag reference it was already being harvested into.
+- README's Speed section carries measured numbers in place of estimates, and
+  now says which commands read bytes and which only read names.
+- HATFILE gained "Any tool can read it": one query answered by ripgrep, `find`,
+  and ls-sql alike, none of which has heard of the convention.
+
+### Fixed
+
+- `set --fh` matches every prefix on its own length. Prefixes of different
+  lengths on one line used to leave some silently dead, so the run renamed
+  fewer files than asked and still reported success.
+- The harvest skip reason names the stem instead of the filename. It always
+  measured the stem, so a 79-character stem still harvests behind a
+  five-character extension, which the old wording denied.
+- The documented length rule matches the code.
+- Stale examples in DESIGN.md are updated.
+- README's `--fh` example separates hashes with commas.
+
 ## [0.15.2] - 2026-08-23
 
 ### Added
