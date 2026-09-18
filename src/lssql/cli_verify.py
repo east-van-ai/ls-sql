@@ -1,21 +1,27 @@
 """
-ls-sql verify -- re-hash files and compare against ls:fh in the filename.
-
-Usage:
-   ls-sql verify PATH               summary only
-   ls-sql verify PATH --verbose     per-file detail
-   ls-sql verify PATH -R            recurse into subdirectories
-
-Read-only. Never touches a file. Exit 1 when any content has changed, which
-is a semantic result and not an error, so the message carries no ls-sql:
-prefix. Files without ls:fh are skipped with a reason.
-
-Options: -R, --verbose
+# ~~~ ~~~ ~~~ ~~~ ~~~ ~~~ ~~~ ls-sql verify ~~~ ~~~ ~~~ ~~~ ~~~ ~~~ ~~~ ~~~
+#
+# https://github.com/east-van-ai/ls-sql
+#
+# Read-only. Re-hash files and compare against ls:fh in the filename. Never
+# touches a file. Exit 1 when any content has changed, which is a semantic
+# result and not an error. Files without ls:fh are skipped with a reason.
+#
+# Usage:
+#
+#   ls-sql verify PATH               summary only
+#   ls-sql verify PATH --verbose     per-file detail
+#   ls-sql verify PATH -R            recurse into subdirectories
+#
+# Options: -R, --verbose
 """
 
 from lssql.args import EXIT_ERROR, EXIT_OK
 from lssql.harvester import verify_directory, verify_file
 from lssql.shared import resolve
+
+# the line printed under an error in this command, without the "Usage: " prefix
+USAGE = "ls-sql verify PATH [-R] [--verbose]"
 
 
 def run_verify_mode(target: str, recursive: bool, verbose: bool) -> int:

@@ -6,6 +6,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.16.1] - 2026-09-18
+
+### Changed
+
+- The shipped documents move to `docs/`: DESIGN.md, HATFILE.md, and RESULTS.md.
+- DESIGN.md splits in two. It keeps the model, and the new `docs/CLI.md` takes the
+  grammar, the commands, the flags, the output shapes, and the exit codes.
+- A path that does not exist prints the error message alone, with no usage line.
+
+### Fixed
+
+- An error prints the usage line of the command that failed.
+- The docs list only the tags ls-sql harvests, and scope `--ext` to `harvest`.
+- An empty `--fh` is an error, instead of tagging every file under PATH.
+
 ## [0.16.0] - 2026-09-01
 
 ### Added

@@ -1,34 +1,39 @@
 """
-ls-sql set -- write user-defined tags into filenames.
-
-Usage:
-   ls-sql set PATH --tags "ud:key=value"
-   ls-sql set PATH --tags "ud:a=1^ud:b=2" --commit
-   ls-sql set PATH --tags "ud:trip=london" -R --commit
-   ls-sql set PATH --tags "ud:album=x" --fh ab2c3d,9fs7g1 --commit
-
-Operators: = overwrite, += append, -= remove a value, == delete the tag.
-Multiple operations are caret-separated, same as the filename format.
-
-Un-harvested files are harvested first, silently. ls:fh is protected and
-silently skipped. Writes to any 2-letter namespace other than ud: are
-rejected, since those belong to the built-in harvesters.
-
---fh takes comma-separated ls:fh prefixes of any length. A file matches when
-its hash starts with one of them. A prefix that matches nothing stops the run
-and is named, and no file is renamed.
-
-Dry run by default. --commit is the single escalation that renames.
-
-Options: --tags (required), --fh, --commit, --dry-run, -R, --verbose
+# ~~~ ~~~ ~~~ ~~~ ~~~ ~~~ ~~~ ls-sql set ~~~ ~~~ ~~~ ~~~ ~~~ ~~~ ~~~ ~~~
+#
+# https://github.com/east-van-ai/ls-sql
+#
+# Write user-defined tags into filenames. Un-harvested files are harvested
+# first, silently. ls:fh is protected and silently skipped. Writes to any
+# 2-letter namespace other than ud: are rejected, since those belong to the
+# built-in harvesters.
+#
+# Usage:
+#
+#   ls-sql set PATH --tags "ud:key=value"
+#   ls-sql set PATH --tags "ud:a=1^ud:b=2" --commit
+#   ls-sql set PATH --tags "ud:trip=london" -R --commit
+#   ls-sql set PATH --tags "ud:album=x" --fh ab2c3d,9fs7g1 --commit
+#
+# Operators: = overwrite, += append, -= remove a value, == delete the tag.
+# Multiple operations are caret-separated, same as the filename format.
+#
+# --fh takes comma-separated ls:fh prefixes of any length. A file matches when
+# its hash starts with one of them. A prefix that matches nothing stops the run
+# and is named, and no file is renamed.
+#
+# Dry run by default. --commit is the single escalation that renames.
+#
+# Options: --tags (required), --fh, --commit, --dry-run, -R, --verbose
 """
 
-import sys
-
-from lssql.args import EXIT_ERROR, EXIT_OK
+from lssql.args import EXIT_OK, CliError
 from lssql.scanner import scan_directory
 from lssql.setter import set_file, set_tags_directory
 from lssql.shared import print_rename_results, resolve
+
+# the line printed under an error in this command, without the "Usage: " prefix
+USAGE = "ls-sql set PATH --tags TAGS [--fh HASHES] [--commit] [-R] [--verbose]"
 
 
 def row_fh(row: dict) -> str:
@@ -58,21 +63,20 @@ def run_set_mode(
     commit: bool,
     recursive: bool = False,
     verbose: bool = False,
-    fh: str = "",
+    fh: str | None = None,
 ) -> int:
     """
     apply tag operations to files under target, and return an exit code.
 
     target is a file path or a directory path. With --fh the directory is
     scanned and files are picked by ls:fh prefix instead, which is the one
-    selection that does not follow the path. EXIT_ERROR when a prefix matched
-    nothing; otherwise EXIT_OK, dry-run and commit alike.
+    selection that does not follow the path. A prefix that matched nothing
+    raises CliError; otherwise EXIT_OK, dry-run and commit alike.
     """
-    if fh:
+    if fh is not None:
         prefixes = parse_fh_prefixes(fh)
         if not prefixes:
-            print("ls-sql: --fh needs at least one hash prefix.", file=sys.stderr)
-            return EXIT_ERROR
+            raise CliError("--fh needs at least one hash prefix.")
 
         rows = scan_directory(target, recursive=recursive)
 
@@ -82,10 +86,7 @@ def run_set_mode(
             p for p in prefixes if not any(row_fh(r).startswith(p) for r in rows)
         ]
         if missing:
-            print(
-                f"ls-sql: no file matched --fh: {', '.join(missing)}", file=sys.stderr
-            )
-            return EXIT_ERROR
+            raise CliError(f"no file matched --fh: {', '.join(missing)}")
 
         targets = [r for r in rows if any(row_fh(r).startswith(p) for p in prefixes)]
 

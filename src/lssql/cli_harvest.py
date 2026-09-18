@@ -1,21 +1,29 @@
 """
-ls-sql harvest -- read file metadata and encode it into the filename.
-
-Usage:
-   ls-sql harvest PATH                       preview renames, change nothing
-   ls-sql harvest PATH --commit              execute renames
-   ls-sql harvest PATH --commit -R           recurse into subdirectories
-   ls-sql harvest PATH --commit --ext jpg,png  only these extensions
-   ls-sql harvest PATH --commit --max 50     stop after N files
-
-Dry run by default. --commit is the single escalation that renames.
-Idempotent: already harvested files are skipped.
-
-Options: --commit, --dry-run, -R, --verbose, --ext, --max
+# ~~~ ~~~ ~~~ ~~~ ~~~ ~~~ ~~~ ls-sql harvest ~~~ ~~~ ~~~ ~~~ ~~~ ~~~ ~~~ ~~~
+#
+# https://github.com/east-van-ai/ls-sql
+#
+# Read file metadata and encode it into the filename.
+#
+# Usage:
+#
+#   ls-sql harvest PATH                       preview renames, change nothing
+#   ls-sql harvest PATH --commit              execute renames
+#   ls-sql harvest PATH --commit -R           recurse into subdirectories
+#   ls-sql harvest PATH --commit --ext jpg,png  only these extensions
+#   ls-sql harvest PATH --commit --max 50     stop after N files
+#
+# Dry run by default. --commit is the single escalation that renames.
+# Idempotent: already harvested files are skipped.
+#
+# Options: --commit, --dry-run, -R, --verbose, --ext, --max
 """
 
 from lssql.harvester import harvest_directory, harvest_file
 from lssql.shared import print_rename_results, resolve
+
+# the line printed under an error in this command, without the "Usage: " prefix
+USAGE = "ls-sql harvest PATH [--commit] [--ext EXTS] [--max N] [-R] [--verbose]"
 
 
 def run_harvest_mode(

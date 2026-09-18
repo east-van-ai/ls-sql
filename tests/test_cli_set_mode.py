@@ -973,6 +973,40 @@ def test_set_fh_only_separators_is_an_error(tmp_path, freeze_date):
     assert "--fh needs at least one hash prefix" in err
 
 
+def test_set_empty_fh_commit_is_an_error(tmp_path, freeze_date):
+    """
+    main(): an empty --fh is refused, and no file is renamed.
+
+    regression. An empty --fh read the same as an absent one, so the run fell
+    through to the path and committed every file under it. An unset shell
+    variable in --fh "$HASH" is the natural way to hit it.
+    """
+    a = _harvest_file(
+        tmp_path, "alpha.jpg", content="content-alpha", freeze=freeze_date
+    )
+    b = _harvest_file(tmp_path, "beta.jpg", content="content-beta", freeze=freeze_date)
+
+    code, out, err = _set_by_fh(tmp_path, "", extra=("--commit",))
+
+    assert code == EXIT_ERROR
+    assert "--fh needs at least one hash prefix" in err
+    assert out == ""
+    assert sorted(tmp_path.iterdir()) == sorted([a, b]), "no file may be renamed"
+
+
+def test_set_empty_fh_dry_run_is_an_error(tmp_path, freeze_date):
+    """
+    main(): an empty --fh is refused before a dry run previews anything.
+    """
+    _harvest_file(tmp_path, "alpha.jpg", content="content-alpha", freeze=freeze_date)
+
+    code, out, err = _set_by_fh(tmp_path, "")
+
+    assert code == EXIT_ERROR
+    assert "--fh needs at least one hash prefix" in err
+    assert out == ""
+
+
 def test_set_fh_duplicate_prefixes_match_once(tmp_path, freeze_date):
     """
     main(): the same prefix twice selects its file once, and is not an error.

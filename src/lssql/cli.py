@@ -1,42 +1,42 @@
 """
 # ==============================================
 # East Van AI -- AI for the rest of us!
-# https://github.com/east-van-ai
+# https://github.com/east-van-ai/ls-sql
 # contact: east-van-ai@proton.me
 # ==============================================
 #
-# ~~~ ~~~ ~~~ ~~~ ~~~ ls-sql ~~~ ~~~ ~~~ ~~~ ~~~ ~~~
+# ~~~ ~~~ ~~~ ~~~ ~~~ ~~~ ~~~ ls-sql ~~~ ~~~ ~~~ ~~~ ~~~ ~~~ ~~~ ~~~
+#
+# No database -- the filesystem is the source of truth and the filename is the cache.
 #
 # Harvests file metadata (EXIF, ID3, image dimensions, ZIP contents)
 # into the filename itself using the Hatfile convention:
 # original^^^ns:tag=value^ns:tag=value^^^comment.ext
-# No database -- the filesystem is the source of truth and the
-# filename is the cache.
 #
 # Usage:
 #
-#    ls-sql <command> PATH [options]
+#   ls-sql <command> PATH [options]
 #
-#    LIST
-#    ls-sql list PATH                                  print parsed rows
-#    ls-sql list PATH --query "SELECT * WHERE k='v'"   filtered
+#   LIST
+#   ls-sql list PATH                                  print parsed rows
+#   ls-sql list PATH --query "SELECT * WHERE k='v'"   filtered
 #
-#    HARVEST
-#    ls-sql harvest PATH [--commit]                    metadata into names
-#    ls-sql harvest PATH --commit --ext jpg,png --max 50
+#   HARVEST
+#   ls-sql harvest PATH [--commit]                    metadata into names
+#   ls-sql harvest PATH --commit --ext jpg,png --max 50
 #
-#    SET
-#    ls-sql set PATH --tags "ud:key=value" [--commit]
-#    ls-sql set PATH --tags "ud:key=value" --fh HASHES [--commit]
+#   SET
+#   ls-sql set PATH --tags "ud:key=value" [--commit]
+#   ls-sql set PATH --tags "ud:key=value" --fh HASHES [--commit]
 #
-#    VERIFY
-#    ls-sql verify PATH                                re-hash, compare ls:fh
+#   VERIFY
+#   ls-sql verify PATH                                re-hash, compare ls:fh
 #
-#    RESET
-#    ls-sql reset PATH [--commit]                      restore original names
+#   RESET
+#   ls-sql reset PATH [--commit]                      restore original names
 #
-#    PIPE
-#    ls <dir> | ls-sql                                 passthrough parse
+#   PIPE
+#   ls <dir> | ls-sql                                 passthrough parse
 #
 # The command word goes right after ls-sql, the path right after the
 # command. Both positions are fixed.
@@ -54,9 +54,9 @@
 #
 # Exit codes:
 #
-#    0:     success
-#    1:     ls-sql error; also verify when changed content is found
-#    2:     argument-parsing errors (unknown command, unknown flag)
+#   0:  success
+#   1:  ls-sql error; also verify when changed content is found
+#   2:  argument-parsing errors (unknown command, unknown flag)
 #
 # License: MIT
 # ==============================================
@@ -71,7 +71,7 @@ from lssql import cli_harvest, cli_list, cli_reset, cli_set, cli_verify
 from lssql.args import (
     EXIT_ERROR,
     EXIT_OK,
-    USAGE,
+    CliError,
     build_parser,
     out_of_scope_option,
     version_line,
@@ -88,15 +88,20 @@ _MODE_MODULES = {
     "reset": cli_reset,
 }
 
+# version has no module to carry its usage line, so it sits beside the table
+VERSION_USAGE = "ls-sql version"
 
-def usage_error(message: str) -> int:
-    """
-    print an ls-sql error plus USAGE to stderr, and return the error code.
 
-    Every error prints both lines, readiness failures included.
-    """
+def usage_error(usage: str, message: str) -> int:
+    """Report any error, readiness failures included, with the matching usage."""
     print(f"ls-sql: {message}", file=sys.stderr)
-    print(f"Usage: {USAGE}", file=sys.stderr)
+    print(f"Usage: {usage}", file=sys.stderr)
+    return EXIT_ERROR
+
+
+def readiness_error(message: str) -> int:
+    """Report what the run needed and did not find, with no usage line."""
+    print(f"ls-sql: {message}", file=sys.stderr)
     return EXIT_ERROR
 
 
@@ -150,6 +155,8 @@ def main() -> int:
 
     Nothing here calls sys.exit(): the code travels back through the return,
     the way the cli_<command> modules already hand theirs up to this dispatch.
+    A command's own validation failure arrives as a CliError instead, so an
+    exit code coming back is never an error.
     """
     # The only invocation that reads stdin.
     if len(sys.argv) == 1:
@@ -168,11 +175,12 @@ def main() -> int:
 
     # Ahead of the parser, like the banner above: a documentation request that
     # answers without a path. Routing it through COMMAND_OPTIONS would require a
-    # PATH and would print the word in argparse's invalid-choice message. See
-    # CLAUDE.md, "The version surface is deliberately undocumented".
+    # PATH and would print the word in argparse's invalid-choice message.
     if sys.argv[1] == "version":
         if len(sys.argv) > 2:
-            return usage_error(f"version takes nothing after it: {sys.argv[2]!r}")
+            return usage_error(
+                VERSION_USAGE, f"version takes nothing after it: {sys.argv[2]!r}"
+            )
         print(version_line())
         return EXIT_OK
 
@@ -183,18 +191,24 @@ def main() -> int:
     if any(extra.startswith("-") for extra in extras):
         parser.parse_args()
 
+    # The command argparse resolved is still the one typed, even out of place.
+    usage = _MODE_MODULES[args.command].USAGE
+
     # Both bare words are read off sys.argv, never taken from argparse: a flag
     # came first exactly when the resolved command is not sys.argv[1].
     if sys.argv[1] != args.command:
         return usage_error(
-            f"the command must come right after 'ls-sql' (got {sys.argv[1]!r} first)."
+            usage,
+            f"the command must come right after 'ls-sql' (got {sys.argv[1]!r} first).",
         )
 
     paths = leading_paths(sys.argv[2:])
     path = paths[0] if paths else None
 
     if len(paths) > 1:
-        return usage_error(f"{args.command} takes nothing after PATH: {paths[1]!r}")
+        return usage_error(
+            usage, f"{args.command} takes nothing after PATH: {paths[1]!r}"
+        )
 
     # A command word and nothing else at all is a help request. Any other token
     # present means something specific was asked for.
@@ -203,73 +217,72 @@ def main() -> int:
             print(_MODE_MODULES[args.command].__doc__)
             return EXIT_OK
         return usage_error(
-            "a path is required right after the command; use '.' for the current directory."
+            usage,
+            "a path is required right after the command; use '.' for the current directory.",
         )
 
     if not (os.path.isdir(path) or os.path.isfile(path)):
-        return usage_error(f"directory or file not found: {path}")
+        return readiness_error(f"directory or file not found: {path}")
 
     stray = out_of_scope_option(args)
     if stray:
-        return usage_error(f"{stray} is not an option of '{args.command}'.")
+        return usage_error(usage, f"{stray} is not an option of '{args.command}'.")
 
     commit = args.commit and not args.dry_run
 
-    if args.command == "list":
-        exit_code = cli_list.run_list_mode(
-            path,
-            query=args.query,
-            recursive=args.recursive,
-        )
-        if exit_code:
-            print(f"Usage: {USAGE}", file=sys.stderr)
-        return exit_code
+    # usage_error() writes the whole message, here and nowhere else.
+    try:
+        if args.command == "list":
+            return cli_list.run_list_mode(
+                path,
+                query=args.query,
+                recursive=args.recursive,
+            )
 
-    if args.command == "harvest":
-        cli_harvest.run_harvest_mode(
+        if args.command == "harvest":
+            cli_harvest.run_harvest_mode(
+                path,
+                commit=commit,
+                recursive=args.recursive,
+                max_files=args.max_files,
+                allowed_exts=parse_ext_filter(args.ext),
+                verbose=args.verbose,
+            )
+            return EXIT_OK
+
+        if args.command == "set":
+            if not args.tags:
+                return usage_error(usage, "set requires --tags.")
+
+            ops, error = parse_set_string(args.tags)
+            if error:
+                return usage_error(usage, error)
+
+            return cli_set.run_set_mode(
+                path,
+                ops,
+                commit=commit,
+                recursive=args.recursive,
+                verbose=args.verbose,
+                fh=args.fh,
+            )
+
+        if args.command == "verify":
+            # 1 if changed data is found; otherwise 0
+            return cli_verify.run_verify_mode(
+                path, recursive=args.recursive, verbose=args.verbose
+            )
+
+        # reset
+        cli_reset.run_reset_mode(
             path,
             commit=commit,
             recursive=args.recursive,
-            max_files=args.max_files,
-            allowed_exts=parse_ext_filter(args.ext),
             verbose=args.verbose,
         )
         return EXIT_OK
-
-    if args.command == "set":
-        if not args.tags:
-            return usage_error("set requires --tags.")
-
-        ops, error = parse_set_string(args.tags)
-        if error:
-            return usage_error(error)
-
-        exit_code = cli_set.run_set_mode(
-            path,
-            ops,
-            commit=commit,
-            recursive=args.recursive,
-            verbose=args.verbose,
-            fh=args.fh,
-        )
-        if exit_code:
-            print(f"Usage: {USAGE}", file=sys.stderr)
-        return exit_code
-
-    if args.command == "verify":
-        # 1 if changed data is found; otherwise 0
-        return cli_verify.run_verify_mode(
-            path, recursive=args.recursive, verbose=args.verbose
-        )
-
-    # reset
-    cli_reset.run_reset_mode(
-        path,
-        commit=commit,
-        recursive=args.recursive,
-        verbose=args.verbose,
-    )
-    return EXIT_OK
+    except CliError as error:
+        return usage_error(usage, str(error))
 
 
 if __name__ == "__main__":

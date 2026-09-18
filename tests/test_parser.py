@@ -211,8 +211,7 @@ def test_stem_carets_inside_tag_part_stay_legal():
 
 # test split_filename_stem -- malformed stems parse as a plain filename.
 # an issue proposed normalizing the stray caret away; that guesses, and the
-# guess deletes a caret the user typed. see DESIGN.md, "What counts as a
-# Hatfile stem".
+# guess deletes a caret the user typed.
 
 
 def test_stem_short_caret_run_is_not_a_hatfile():

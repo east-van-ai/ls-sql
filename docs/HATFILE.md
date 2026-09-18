@@ -6,13 +6,18 @@
 
 Metadata belongs with the file, not in a separate database.
 
-Every file management tool stores metadata elsewhere. The database drifts. Files move. Records go stale. Apps get abandoned. You lose years of organisation because a catalogue got corrupted.
+Every file management tool stores metadata elsewhere. The database drifts. Files
+move. Records go stale. Apps get abandoned. You lose years of organisation
+because a catalogue got corrupted.
 
-Hatfile takes a different approach. Metadata lives in the filename itself, visible to any file browser, searchable by Spotlight, greppable from Terminal. No app required. No database to maintain. No records to go stale.
+Hatfile takes a different approach. Metadata lives in the filename itself,
+visible to any file browser, searchable by Spotlight, greppable from Terminal.
+No app required. No database to maintain. No records to go stale.
 
 ## The boundary
 
-`^^^` marks the harvest boundary. Three carets. Visually distinct. Rare enough in natural filenames to avoid collisions.
+`^^^` marks the harvest boundary. Three carets. Visually distinct. Rare enough
+in natural filenames to avoid collisions.
 
 ```text
 {original}^^^{tagged_metadata}^^^{human_comment}.{ext}
@@ -49,7 +54,9 @@ zi:    ZIP / CBZ metadata
 ud:    User defined custom tags
 ```
 
-2-letter namespaces are reserved for ls-sql built-in harvesters. Use `ud:` for custom tags. Use 1-letter or 3-letter+ namespaces for your own extensions (e.g. `myapp:key=value`).
+2-letter namespaces are reserved for ls-sql built-in harvesters. Use `ud:` for
+custom tags. Use 1-letter or 3-letter+ namespaces for your own extensions (e.g.
+`myapp:key=value`).
 
 ## Tag reference
 
@@ -73,6 +80,8 @@ au:yr    Year
 
 zi:cnt   ZIP entry count
 zi:ext   ZIP content types (semicolon-separated)
+zi:dot   ZIP dot entry count, only when above zero
+zi:dir   ZIP directory count, explicit and implicit
 
 ud:*     Anything that does not overlap with native tags
 ```
@@ -83,17 +92,21 @@ ud:*     Anything that does not overlap with native tags
 - Left of the first `^^^` is never modified by any Hatfile-compliant tool.
 - Tags are always lowercase `namespace:local-key=value`.
 - The trailing `^^^` is always appended, comment or not.
-- Filenames must stay under 200 characters total.
+- Aim to keep filenames under 200 characters total.
 - Filenames with `^^^` already in the original stem are not supported.
 - Original filename stem must be 80 characters or fewer.
 
 ## Reversibility
 
-Stripping all tags between the first and second `^^^` restores the original filename exactly. Hatfile operations are fully reversible by design.
+Stripping all tags between the first and second `^^^` restores the original
+filename exactly. Hatfile operations are fully reversible by design.
 
 ## Any tool can read it
 
-The tags sit in the name, so a program that has never heard of Hatfile can still answer a question about them. No index, no plugin, no format support. Measured against 1,048,576 generated files on an internal SSD, all three of these return the same 65,536 matches:
+The tags sit in the name, so a program that has never heard of Hatfile can still
+answer a question about them. No index, no plugin, no format support. Measured
+against 1,048,576 generated files on an internal SSD, all three of these return
+the same 65,536 matches:
 
 | | | |
 | --- | --- | --- |
@@ -101,9 +114,18 @@ The tags sit in the name, so a program that has never heard of Hatfile can still
 | `ls-sql list --query "SELECT * WHERE evai:fruit='apple'"` | 13.8 sec | Python, parses each name into tags |
 | `find -name "*evai:fruit=apple*"` | 17.6 sec | one thread, stats each entry |
 
-None of them knows what a Hatfile is. `find` is already on every Unix machine and needs nothing installed. ripgrep has to be installed, and repays it by answering thirteen times faster than the reference implementation. That spread is the point: the interface is a glob against a filename, so the convention outlives any single tool that reads it, this one included.
+None of them knows what a Hatfile is. `find` is already on every Unix machine
+and needs nothing installed. ripgrep has to be installed, and repays it by
+answering thirteen times faster than the reference implementation. That spread
+is the point: the interface is a glob against a filename, so the convention
+outlives any single tool that reads it, this one included.
 
-Which tool leads depends on the disk. Repeat the same query against an external hard drive and ripgrep's advantage disappears: 5m26s against ls-sql's 6m08s, close enough that the two swap places between runs. Many threads keep a solid-state queue full, and a single head cannot be kept full at all. No reader is the right reader everywhere, and a convention only one of them could read would have to pick.
+Which tool leads depends on the disk. Repeat the same query against an external
+hard drive and ripgrep's advantage disappears: 5m26s against ls-sql's 6m08s,
+close enough that the two swap places between runs. Many threads keep a
+solid-state queue full, and a single head cannot be kept full at all. No reader
+is the right reader everywhere, and a convention only one of them could read
+would have to pick.
 
 ## Use cases
 

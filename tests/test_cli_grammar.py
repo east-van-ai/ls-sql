@@ -8,8 +8,6 @@ from a token appearing after any number of flags. Without these tests the
 accepted grammar could drift away from the documented one and nothing would
 notice: the wrong command line still parses, it just means something else.
 
-See DESIGN.md, "CLI grammar" and "Positions are decided, not inferred".
-
 Option B throughout: main() called directly with mocked sys.argv.
 """
 
@@ -17,15 +15,18 @@ from importlib import metadata
 from io import StringIO
 from unittest.mock import patch
 
+import pytest
+
 from lssql.args import (
     COMMAND_OPTIONS,
     EXIT_ARGPARSE,
     EXIT_ERROR,
     EXIT_OK,
+    OPTION_FLAGS,
     installed_version,
     version_line,
 )
-from lssql.cli import main
+from lssql.cli import _MODE_MODULES, main
 
 
 def _run(argv, stdin_is_tty=False):
@@ -33,8 +34,7 @@ def _run(argv, stdin_is_tty=False):
 
     Two ways a code arrives. main() returns 0 and 1 itself, while argparse
     raises SystemExit(2) from inside parse_args() and never comes back. Both
-    are caught here so a test can compare a code without caring which. See
-    DESIGN.md, "main() returns a code, it does not exit".
+    are caught here so a test can compare a code without caring which.
     """
 
     class FakeTTY:
@@ -65,7 +65,7 @@ def test_exit_codes_are_the_documented_numbers():
 
     Every other assertion here compares against a name, so the names could all
     drift together and nothing would fail. This is the one place the numbers
-    themselves are pinned. See DESIGN.md, "Exit codes".
+    themselves are pinned.
     """
     assert (EXIT_OK, EXIT_ERROR, EXIT_ARGPARSE) == (0, 1, 2)
 
@@ -78,8 +78,7 @@ def test_version_prints_the_installed_version():
 
     The 0 arrives as SystemExit from argparse's version action rather than as a
     return value, which _run() flattens. Neither spelling is documented, so
-    these tests are the only record of the behaviour. See CLAUDE.md, "The
-    version surface is deliberately undocumented".
+    these tests are the only record of the behaviour.
     """
     code, out, _ = _run(["--version"])
 
@@ -156,7 +155,9 @@ def test_version_command_word_takes_nothing_after_it():
     assert code == EXIT_ERROR
     assert "version takes nothing after it" in err
     assert "'extra'" in err
-    assert "Usage:" in err
+    assert err.splitlines()[-1] == "Usage: ls-sql version"
+    # the stray names only the command typed, never the grammar of the others
+    assert "harvest" not in err
 
 
 def test_version_command_word_rejects_a_trailing_flag_too():
@@ -204,6 +205,11 @@ def test_command_must_come_first(tmp_path):
     assert code == EXIT_ERROR
     assert "the command must come right after 'ls-sql'" in err
     assert "'--commit' first" in err
+    # harvest was typed, just out of place, so its line shows the order wanted
+    assert (
+        err.splitlines()[-1]
+        == "Usage: ls-sql harvest PATH [--commit] [--ext EXTS] [--max N] [-R] [--verbose]"
+    )
 
 
 def test_unknown_command_is_an_argparse_error(tmp_path):
@@ -262,12 +268,15 @@ def test_a_second_bare_word_is_an_ls_sql_error(tmp_path):
 
     assert code == EXIT_ERROR
     assert "harvest takes nothing after PATH: 'extra'" in err
-    assert "Usage: ls-sql list|harvest|set|verify|reset PATH" in err
+    assert (
+        err.splitlines()[-1]
+        == "Usage: ls-sql harvest PATH [--commit] [--ext EXTS] [--max N] [-R] [--verbose]"
+    )
 
 
 def test_missing_path_is_an_ls_sql_error(tmp_path):
     """
-    a command with options but no path errors, exit 1, with compact USAGE.
+    a command with options but no path errors, exit 1, with harvest's usage line.
 
     Bare `ls-sql harvest` is a help request; this is the case where the user
     asked for something specific and left the path out.
@@ -276,28 +285,69 @@ def test_missing_path_is_an_ls_sql_error(tmp_path):
 
     assert code == EXIT_ERROR
     assert "a path is required right after the command" in err
-    assert "Usage: ls-sql list|harvest|set|verify|reset PATH" in err
-    # compact USAGE only -- never the full argparse help dump
+    assert (
+        err.splitlines()[-1]
+        == "Usage: ls-sql harvest PATH [--commit] [--ext EXTS] [--max N] [-R] [--verbose]"
+    )
+    # one usage line only -- never the full argparse help dump
     assert "show this help message" not in err
 
 
-def test_usage_continuation_aligns_under_the_first_line():
-    """
-    the second usage line is indented by exactly the width of "Usage: ".
+def test_a_grammar_error_prints_the_message_then_one_usage_line(tmp_path):
+    """the message, then the failing command's usage line, and nothing else."""
+    _, _, err = _run(["list", str(tmp_path), "--query", "nonsense"])
 
-    The prefix is printed in cli.py and the padding sits in args.py's USAGE, so
-    nothing else pins the pairing. Every other assertion here matches a
-    substring of the first line, which a prefix of a different width would
-    still satisfy while the block came out crooked.
-    """
+    # line[0] and line[1] form one line error message split by a new line '\n'.
+    assert err.splitlines() == [
+        "ls-sql: I'm sorry Dave, I can't run that query.",
+        "  expected: SELECT * WHERE ...",
+        "Usage: ls-sql list PATH [--query QUERY] [-R]",
+    ]
+
+
+def test_a_readiness_failure_prints_exactly_one_line():
+    """the message only, no usage line, and nothing else."""
     _, _, err = _run(["harvest", "no-such-path"])
 
-    first, second = err.strip().splitlines()[-2:]
-    indent = len("Usage: ")
+    assert err.splitlines() == ["ls-sql: directory or file not found: no-such-path"]
 
-    assert first.startswith("Usage: ls-sql")
-    assert second[:indent].isspace()
-    assert not second[indent].isspace()
+
+@pytest.mark.parametrize("command", list(COMMAND_OPTIONS))
+def test_each_usage_line_names_its_own_options(command):
+    """
+    a command's usage line opens with its grammar and names its scoped flags.
+
+    The drift guard: a scoped option added to COMMAND_OPTIONS fails here until
+    the line gains it. --dry-run is left off every line, since it restates the
+    default.
+    """
+    usage = _MODE_MODULES[command].USAGE
+
+    assert usage.startswith(f"ls-sql {command} PATH")
+    assert "\n" not in usage
+    for dest in COMMAND_OPTIONS[command] - {"dry_run"}:
+        assert OPTION_FLAGS[dest] in usage
+
+
+def test_an_unparseable_query_prints_the_list_usage(tmp_path):
+    """the query error comes from inside list, and still ends in list's line."""
+    code, _, err = _run(["list", str(tmp_path), "--query", "nonsense"])
+
+    assert code == EXIT_ERROR
+    assert err.splitlines()[-1] == "Usage: ls-sql list PATH [--query QUERY] [-R]"
+
+
+def test_an_unmatched_fh_prints_the_set_usage(tmp_path):
+    """the --fh error comes from inside set, and still ends in set's line."""
+    (tmp_path / "photo.jpg").write_text("fake image content")
+
+    code, _, err = _run(["set", str(tmp_path), "--tags", "ud:a=1", "--fh", "0000"])
+
+    assert code == EXIT_ERROR
+    assert "no file matched --fh: 0000" in err
+    assert err.splitlines()[-1] == (
+        "Usage: ls-sql set PATH --tags TAGS [--fh HASHES] [--commit] [-R] [--verbose]"
+    )
 
 
 def test_bare_command_is_a_help_request():

@@ -1,22 +1,30 @@
 """
-ls-sql reset -- strip harvested tags and restore original filenames.
-
-Usage:
-   ls-sql reset PATH                preview the strip, change nothing
-   ls-sql reset PATH --commit       restore original filenames
-   ls-sql reset PATH --commit -R    recurse into subdirectories
-
-Everything between the first and second ^^^ goes. The human comment right
-of the second ^^^ is preserved, and the original filename left of the first
-^^^ was never modified, so this is lossless.
-
-Dry run by default. --commit is the single escalation that renames.
-
-Options: --commit, --dry-run, -R, --verbose
+# ~~~ ~~~ ~~~ ~~~ ~~~ ~~~ ~~~ ls-sql reset ~~~ ~~~ ~~~ ~~~ ~~~ ~~~ ~~~ ~~~
+#
+# https://github.com/east-van-ai/ls-sql
+#
+# Strip harvested tags and restore original filenames.
+#
+# Usage:
+#
+#   ls-sql reset PATH                preview the strip, change nothing
+#   ls-sql reset PATH --commit       restore original filenames
+#   ls-sql reset PATH --commit -R    recurse into subdirectories
+#
+# Everything between the first and second ^^^ goes. The human comment right
+# of the second ^^^ is preserved, and the original filename left of the first
+# ^^^ was never modified, so this is lossless.
+#
+# Dry run by default. --commit is the single escalation that renames.
+#
+# Options: --commit, --dry-run, -R, --verbose
 """
 
 from lssql.harvester import remove_tags_from_directory, remove_tags_from_filename_commit
 from lssql.shared import print_rename_results, resolve
+
+# the line printed under an error in this command, without the "Usage: " prefix
+USAGE = "ls-sql reset PATH [--commit] [-R] [--verbose]"
 
 
 def run_reset_mode(

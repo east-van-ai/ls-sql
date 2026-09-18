@@ -395,7 +395,7 @@ def test_cli_bare_invocation_prints_banner_main():
 
 
 def test_cli_missing_path_usage_error_main():
-    """main(): a command with options but no path prints error + USAGE, exits 1."""
+    """main(): a command with options but no path prints error + usage, exits 1."""
     with (
         patch("sys.stderr", new_callable=StringIO) as mock_err,
         patch("sys.argv", ["ls-sql", "harvest", "--commit"]),
@@ -405,13 +405,16 @@ def test_cli_missing_path_usage_error_main():
     assert code == EXIT_ERROR
     err = mock_err.getvalue()
     assert "ls-sql: a path is required" in err
-    assert "Usage: ls-sql list|harvest|set|verify|reset PATH" in err
-    # compact USAGE only -- no full argparse help dump
+    assert (
+        "Usage: ls-sql harvest PATH [--commit] [--ext EXTS] [--max N] [-R] [--verbose]"
+        in err
+    )
+    # one usage line only -- no full argparse help dump
     assert "show this help message" not in err
 
 
 def test_cli_target_not_found_error_main(tmp_path):
-    """main(): a nonexistent path prints ls-sql: error + USAGE, exits 1."""
+    """main(): a nonexistent path prints ls-sql: error + usage, exits 1."""
     missing = tmp_path / "does-not-exist"
 
     with (
@@ -423,7 +426,6 @@ def test_cli_target_not_found_error_main(tmp_path):
     assert code == EXIT_ERROR
     err = mock_err.getvalue()
     assert "ls-sql: directory or file not found" in err
-    assert "Usage: ls-sql list|harvest|set|verify|reset PATH" in err
 
 
 def test_cli_unknown_flag_exits_two_main():

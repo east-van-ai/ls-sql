@@ -12,9 +12,16 @@ EXIT_ARGPARSE = 2
 
 PROG = "ls-sql"
 
-USAGE = (
-    "ls-sql list|harvest|set|verify|reset PATH [options]\n" "       ls <dir> | ls-sql"
-)
+
+class CliError(Exception):
+    """
+    a validation failure raised by a cli_<command>.py function.
+
+    Carries the message alone; main() catches it and does the reporting.
+    Nothing below the CLI layer raises it. A validator there returns a
+    (value, error) tuple instead, having no view of which command called it.
+    """
+
 
 # options each command accepts beyond the shared ones. Anything outside its
 # command is an error, not something quietly ignored: `list PATH --commit`
@@ -149,7 +156,7 @@ def build_parser():
     parser.add_argument(
         "--fh",
         type=str,
-        default="",
+        default=None,
         metavar="HASHES",
         help="(set) comma-separated ls:fh prefixes to select files by content hash",
     )

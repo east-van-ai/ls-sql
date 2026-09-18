@@ -7,8 +7,7 @@ existed nothing asserted it. Every other CLI test checks substrings like
 drifted into two different status-column widths without anything noticing.
 
 These tests assert exact line prefixes on purpose. If the format is changed
-deliberately, they are meant to fail and be updated. See DESIGN.md,
-"Rename previews".
+deliberately, they are meant to fail and be updated.
 
 Option B throughout: main() called directly with mocked sys.argv.
 """

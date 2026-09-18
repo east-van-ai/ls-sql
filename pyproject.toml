@@ -1,6 +1,6 @@
 [project]
 name = "ls-sql"
-version = "0.16.0"
+version = "0.16.1"
 description = "A pipeable extension of ls with SQL querying and file metadata harvesting."
 readme = "README.md"
 authors = [{ name = "East Van AI", email = "east-van-ai@proton.me" }]
@@ -9,8 +9,7 @@ license = "MIT"
 license-files = ["LICENSE"]
 # Only what ls-sql imports. Floors, not pins: the floor is the version ls-sql
 # was last tested against (2026-07-19), and a cap would be a guess about
-# releases that do not exist yet. See DESIGN.md, "Dependencies are floors,
-# not pins".
+# releases that do not exist yet.
 dependencies = [
     "mutagen>=1.47.0",
     "piexif>=1.1.3",

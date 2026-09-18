@@ -8,10 +8,11 @@ data/.gitkeep
 src/**/*.py
 tests/*.py
 tools/*.py
+docs/CLI.md
+docs/DESIGN.md
+docs/HATFILE.md
+docs/RESULTS.md
 CHANGELOG.md
-DESIGN.md
-HATFILE.md
 LICENSE
 pyproject.toml
 README.md
-RESULTS.md

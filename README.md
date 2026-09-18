@@ -179,8 +179,8 @@ ls-sql implements **Hatfile**, a metadata convention that lives in the filename
 and uses `^^^` as its boundary.
 
 ```text
-IMG-1234567890-1234567890^^^ls:hd=20260503^ls:fh=03754271b00a0e1c^ls:dw=512^ls:dh=768^ex:dto=2024:07:12^^^mom-at-wedding-1994-06-24.png
-^-- original, untouched --^^^--- structured metadata, tagged key-value pairs --------------------------^^^--- human comment ------^
+IMG-1234567890^^^ls:hd=20260503^ls:fh=03754271b00a0e1c^ls:dw=512^ls:dh=768^ex:dto=2024:07:12^^^mom-at-wedding-1994.png
+^- original --^^^--------------- structured metadata, tagged key-value pairs ---------------^^^--- human comment ---^
 ```
 
 Your original filename sits to the left of the first `^^^` and is never
@@ -200,7 +200,9 @@ free for your own tools to claim.
 | zi: | ZIP / CBZ metadata | (2-letter, reserved) |
 | ud: | User defined custom tags | (blessed user namespace) |
 
-[HATFILE.md](HATFILE.md) has the full convention and every tag in it.
+[HATFILE.md](docs/HATFILE.md) has the full convention and every tag in it. It
+is specified apart from ls-sql, so any tool that can read a filename can read a
+Hatfile.
 
 ## Albums without an album app
 
