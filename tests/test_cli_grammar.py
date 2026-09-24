@@ -69,10 +69,13 @@ def test_every_parsed_command_has_an_action():
 
     The subparsers decide what argparse accepts and COMMANDS decides what runs,
     so a word in one and not the other either never runs or never parses. The
-    choices are read from argparse's own invalid-choice message.
+    choices are read from argparse's own invalid-choice message. Python 3.14.5
+    started quoting each choice in that message, so the quotes are stripped and
+    either format reads the same.
     """
     _, _, err = _run(["badcmd", "."])
-    choices = err.split("choose from ")[1].rstrip().rstrip(")").split(", ")
+    listed = err.split("choose from ")[1].rstrip().rstrip(")").split(", ")
+    choices = [choice.strip("'") for choice in listed]
 
     assert set(COMMANDS) == set(choices)
 

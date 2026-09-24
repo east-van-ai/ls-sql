@@ -1,6 +1,6 @@
 [project]
 name = "ls-sql"
-version = "0.16.2"
+version = "0.16.3"
 description = "A pipeable extension of ls with SQL querying and file metadata harvesting."
 readme = "README.md"
 authors = [{ name = "East Van AI", email = "east-van-ai@proton.me" }]

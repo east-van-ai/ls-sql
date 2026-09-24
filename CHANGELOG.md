@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.16.3] - 2026-09-24
+
+### Fixed
+
+- The test suite passes on Python 3.14.5 and later, where argparse quotes the
+  choices in its invalid-choice message.
+
 ## [0.16.2] - 2026-09-24
 
 ### Changed
