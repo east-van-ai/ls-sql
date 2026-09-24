@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.16.2] - 2026-09-24
+
+### Changed
+
+- A missing PATH reads `harvest needs PATH`, in the wording the stray-word error
+  already uses.
+- Each command has its own parser, `version` included. A flag it does not take is
+  argparse's `unrecognized arguments`, exit 2, not 1, and so is any flag before the
+  command word.
+- `list` no longer accepts `--verbose`, which it ignored.
+- `ls-sql -h` lists the commands, and `ls-sql <command> -h` shows only its flags.
+
 ## [0.16.1] - 2026-09-18
 
 ### Changed

@@ -13,8 +13,8 @@ ls-sql <command> PATH [options]
 ```
 
 - **The command is a bare word, and it comes first.** `list`, `harvest`, `set`,
-  `verify`, `reset`. It must sit in `sys.argv[1]`, immediately after `ls-sql`,
-  not after some flag that happens to parse. There is no default command:
+  `verify`, `reset`. It must sit in `sys.argv[1]`, immediately after `ls-sql`.
+  A flag ahead of it is argparse's error, exit 2. There is no default command:
   `ls-sql .` is a usage error, not a listing.
 - **The path is a bare word, and it comes second.** Every command acts on one
   directory or file, named in `sys.argv[2]`. `.` for the current directory. One
@@ -22,10 +22,13 @@ ls-sql <command> PATH [options]
   ignore. argparse cannot be trusted with this slot on its own, so the position
   is read off the command line directly. See "Positions are decided, not
   inferred" below.
-- **Options are scoped to their command.** `--ext` and `--max` belong to
-  harvest, `--fh` and `--tags` to set, `--query` to list. Passing one to a
-  command that has no use for it is an error, not something quietly ignored.
-  `--commit`, `--dry-run`, `-R`, and `--verbose` are shared.
+- **Options are scoped to their command.** Each command has its own parser,
+  and it knows only that command's flags. `--ext` and `--max` belong to
+  harvest, `--fh` and `--tags` to set, `--query` to list. `--commit` and
+  `--dry-run` belong to the three commands that rename, `--verbose` to every
+  command but list, and `-R` to all five. Passing a flag to a command that has
+  no use for it is argparse's `unrecognized arguments`, exit 2, not something
+  quietly ignored.
 - **Bare `ls-sql` prints the banner.** Module docstring to stdout, exit 0.
   Discovering the tool costs nothing and touches nothing.
 - **A bare command word is a help request.** `ls-sql harvest`, with nothing
@@ -53,7 +56,7 @@ Errors never dump the full `--help` text.
 
 ```text
 $ ls-sql harvest --commit
-ls-sql: a path is required right after the command; use '.' for the current directory.
+ls-sql: harvest needs PATH
 Usage: ls-sql harvest PATH [--commit] [--ext EXTS] [--max N] [-R] [--verbose]
 ```
 
@@ -106,8 +109,8 @@ never one to produce.
 
 ### Positions are decided, not inferred
 
-Both bare words are pinned to a fixed slot, checked directly against `sys.argv`
-rather than left to argparse.
+Both bare words are pinned to a fixed slot. The path is read off `sys.argv`
+directly, and the parser holds the command word.
 
 Since Python 3.12, argparse back-fills a trailing optional positional from a
 token appearing after any number of flags. `ls-sql harvest --commit .` parses
@@ -129,9 +132,11 @@ therefore runs through `parse_known_args()`, so the leftover survives to reach
 that check. A leftover that starts with a dash goes straight back to argparse,
 which names a misspelled flag better than ls-sql can.
 
-The command word gets the same treatment for the same reason. argparse resolves
-which token is the positional correctly, whatever the interleaving, so a flag
-came first exactly when that token is not `sys.argv[1]`.
+The command word needs no such reading. The top-level parser knows none of the
+commands' flags, so any flag ahead of the command word is argparse's
+`unrecognized arguments`, exit 2. A command word that parses is `sys.argv[1]`.
+A flag belonging to another command is exit 2 for the same reason: the
+command's own parser has never heard of it.
 
 ### Piped is a file type, not the absence of a terminal
 
@@ -384,7 +389,7 @@ modified during harvest.
 - `--commit` executes. Dry-run is the default on `harvest`, `set`, and `reset`,
   and `--dry-run` wins if both are passed.
 - `--verbose` adds the skipped lines to a rename preview, and per-file detail
-  to `verify`.
+  to `verify`. `list` has nothing to skip and does not take it.
 - There is no `--quiet`. `list` output is a clean path per line with no summary,
   so there is nothing to silence.
 
@@ -438,12 +443,11 @@ summary line. Different question, different output.
 
 ## Use of AI
 
-Both the use of AI and its disclosure are deliberate. Code and
-documentation in this project are written in collaboration with
-Artificial Intelligence (AI). The division of labour: the AI explores,
-challenges assumptions and edge cases, and drafts; the human
-initiates, drafts the designs, explores alongside the AI, reviews
-every change, and decides what gets committed.
+Both the use of AI and its disclosure are deliberate. Code and documentation in
+this project are written in collaboration with Artificial Intelligence (AI). The
+division of labour: the AI explores, challenges assumptions and edge cases, and
+drafts; the human initiates, drafts the designs, explores alongside the AI,
+reviews every change, and decides what gets committed.
 
 ---
 

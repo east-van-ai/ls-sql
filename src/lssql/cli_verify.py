@@ -16,18 +16,25 @@
 # Options: -R, --verbose
 """
 
-from lssql.args import EXIT_ERROR, EXIT_OK
+from lssql.errors import ReadinessError
 from lssql.harvester import verify_directory, verify_file
-from lssql.shared import resolve
+from lssql.shared import require_path, resolve
 
-# the line printed under an error in this command, without the "Usage: " prefix
+HELP = "re-hash files and compare against ls:fh"
 USAGE = "ls-sql verify PATH [-R] [--verbose]"
+SLOTS = ("PATH",)
 
 
-def run_verify_mode(target: str, recursive: bool, verbose: bool) -> int:
+def run(target: str, args) -> None:
     """
-    returns exit code -- EXIT_OK(0) if all ok, EXIT_ERROR(1) if any changed.
+    re-hash files under target and print how many changed.
+
+    Changed content raises ReadinessError with no message once the summary is
+    on stdout: main() turns it into exit 1 and prints nothing more, since the
+    summary has already said it and the result is not an error.
     """
+    require_path(target)
+    recursive, verbose = args.recursive, args.verbose
 
     results = resolve(
         target,
@@ -54,4 +61,5 @@ def run_verify_mode(target: str, recursive: bool, verbose: bool) -> int:
 
     print(f"\n{checked} file(s) checked, {changed} changed, {skipped} skipped")
 
-    return EXIT_ERROR if changed else EXIT_OK
+    if changed:
+        raise ReadinessError()

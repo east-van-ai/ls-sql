@@ -19,22 +19,21 @@
 # Options: --query, -R
 """
 
-from lssql.args import EXIT_OK, CliError
+from lssql.errors import UsageError
 from lssql.parser import build_file_path, parse_filename
 from lssql.query import run_query
 from lssql.scanner import scan_directory
-from lssql.shared import resolve
+from lssql.shared import require_path, resolve
 
-# the line printed under an error in this command, without the "Usage: " prefix
+HELP = "print parsed rows, optionally filtered"
 USAGE = "ls-sql list PATH [--query QUERY] [-R]"
+SLOTS = ("PATH",)
 
 
-def run_list_mode(
-    target: str,
-    query: str = "",
-    recursive: bool = False,
-) -> int:
-    """list parsed rows under target, filtered by query when given."""
+def run(target: str, args) -> None:
+    """list parsed rows under target, filtered by --query when given."""
+    require_path(target)
+    query, recursive = args.query, args.recursive
     rows = resolve(
         target,
         lambda directory, filename: {**parse_filename(filename), "path": directory},
@@ -44,10 +43,8 @@ def run_list_mode(
     if query:
         rows, error = run_query(query, rows)
         if error:
-            raise CliError(error)
+            raise UsageError(error)
 
     rows.sort(key=lambda d: d["filename"].lower())
     for row in rows:
         print(build_file_path(row))
-
-    return EXIT_OK

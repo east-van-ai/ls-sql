@@ -21,16 +21,17 @@
 """
 
 from lssql.harvester import remove_tags_from_directory, remove_tags_from_filename_commit
-from lssql.shared import print_rename_results, resolve
+from lssql.shared import commit_requested, print_rename_results, require_path, resolve
 
-# the line printed under an error in this command, without the "Usage: " prefix
+HELP = "restore original filenames"
 USAGE = "ls-sql reset PATH [--commit] [-R] [--verbose]"
+SLOTS = ("PATH",)
 
 
-def run_reset_mode(
-    target: str, commit: bool, recursive: bool, verbose: bool = False
-) -> None:
+def run(target: str, args) -> None:
     """strip all harvested tags from filenames under target."""
+    require_path(target)
+    commit, recursive, verbose = commit_requested(args), args.recursive, args.verbose
     results = resolve(
         target,
         lambda d, f: remove_tags_from_filename_commit(d, f, commit),

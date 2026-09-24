@@ -24,8 +24,7 @@ from io import StringIO
 from pathlib import Path
 from unittest.mock import patch
 
-from lssql.args import EXIT_ARGPARSE, EXIT_ERROR, EXIT_OK
-from lssql.cli import main
+from lssql.cli import EXIT_ARGPARSE, EXIT_ERROR, EXIT_OK, main
 from tests.test_cli import _ls_sql_bin, skip_on_ci
 
 # -- Option A: subprocess --

@@ -366,10 +366,13 @@ the installed `ls-sql` entry point.
 
 The gain is in testing. A returned code is a value a test reads directly, where
 `sys.exit()` forces every caller, tests included, to catch a `SystemExit` and
-dig the code out of it. Command modules return their codes up to the dispatch,
-and `main()` does the same thing one level up. An error inside a command module
-is raised instead, and `main()` catches it and reports it, so no command module
-writes to stderr.
+dig the code out of it. `main()` also takes the command line as a list, so a
+test hands it the words instead of patching `sys.argv`.
+
+A command module returns nothing. A failure inside one is raised, and `main()`
+catches it, reports it, and returns the code, so no command module writes to
+stderr or picks an exit code. `verify` finding changed content raises too, with
+no message, so its exit 1 comes back the same way and stderr stays empty.
 
 The cost is a call site that forgets to `return`. An error helper that prints
 and returns a code, called without `return` in front of it, turns a failure
@@ -446,12 +449,11 @@ Congratulations. Go get proper gear. 🎣
 
 ## Use of AI
 
-Both the use of AI and its disclosure are deliberate. Code and
-documentation in this project are written in collaboration with
-Artificial Intelligence (AI). The division of labour: the AI explores,
-challenges assumptions and edge cases, and drafts; the human
-initiates, drafts the designs, explores alongside the AI, reviews
-every change, and decides what gets committed.
+Both the use of AI and its disclosure are deliberate. Code and documentation in
+this project are written in collaboration with Artificial Intelligence (AI). The
+division of labour: the AI explores, challenges assumptions and edge cases, and
+drafts; the human initiates, drafts the designs, explores alongside the AI,
+reviews every change, and decides what gets committed.
 
 ---
 

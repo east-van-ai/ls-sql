@@ -20,21 +20,19 @@
 """
 
 from lssql.harvester import harvest_directory, harvest_file
-from lssql.shared import print_rename_results, resolve
+from lssql.harvester_util import parse_ext_filter
+from lssql.shared import commit_requested, print_rename_results, require_path, resolve
 
-# the line printed under an error in this command, without the "Usage: " prefix
+HELP = "harvest metadata into filenames"
 USAGE = "ls-sql harvest PATH [--commit] [--ext EXTS] [--max N] [-R] [--verbose]"
+SLOTS = ("PATH",)
 
 
-def run_harvest_mode(
-    target: str,
-    commit: bool,
-    recursive: bool,
-    max_files: int = 0,
-    allowed_exts: set | None = None,
-    verbose: bool = False,
-) -> None:
+def run(target: str, args) -> None:
     """harvest metadata into filenames under target."""
+    require_path(target)
+    commit, recursive, verbose = commit_requested(args), args.recursive, args.verbose
+    max_files, allowed_exts = args.max_files, parse_ext_filter(args.ext)
     results = resolve(
         target,
         lambda d, f: harvest_file(d, f, commit, allowed_exts),

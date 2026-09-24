@@ -27,13 +27,14 @@
 # Options: --tags (required), --fh, --commit, --dry-run, -R, --verbose
 """
 
-from lssql.args import EXIT_OK, CliError
+from lssql.errors import UsageError
 from lssql.scanner import scan_directory
-from lssql.setter import set_file, set_tags_directory
-from lssql.shared import print_rename_results, resolve
+from lssql.setter import parse_set_string, set_file, set_tags_directory
+from lssql.shared import commit_requested, print_rename_results, require_path, resolve
 
-# the line printed under an error in this command, without the "Usage: " prefix
+HELP = "write user-defined tags into filenames"
 USAGE = "ls-sql set PATH --tags TAGS [--fh HASHES] [--commit] [-R] [--verbose]"
+SLOTS = ("PATH",)
 
 
 def row_fh(row: dict) -> str:
@@ -57,26 +58,30 @@ def parse_fh_prefixes(fh: str) -> list[str]:
     return prefixes
 
 
-def run_set_mode(
-    target: str,
-    ops: list[dict],
-    commit: bool,
-    recursive: bool = False,
-    verbose: bool = False,
-    fh: str | None = None,
-) -> int:
+def run(target: str, args) -> None:
     """
-    apply tag operations to files under target, and return an exit code.
+    apply the tag operations in --tags to files under target.
 
     target is a file path or a directory path. With --fh the directory is
     scanned and files are picked by ls:fh prefix instead, which is the one
-    selection that does not follow the path. A prefix that matched nothing
-    raises CliError; otherwise EXIT_OK, dry-run and commit alike.
+    selection that does not follow the path. Missing or unparseable tags, and
+    an --fh that is empty or has a prefix matching nothing, raise UsageError.
     """
+    require_path(target)
+    tags, fh, commit = args.tags, args.fh, commit_requested(args)
+    recursive, verbose = args.recursive, args.verbose
+
+    if not tags:
+        raise UsageError("set requires --tags.")
+
+    ops, error = parse_set_string(tags)
+    if error:
+        raise UsageError(error)
+
     if fh is not None:
         prefixes = parse_fh_prefixes(fh)
         if not prefixes:
-            raise CliError("--fh needs at least one hash prefix.")
+            raise UsageError("--fh needs at least one hash prefix.")
 
         rows = scan_directory(target, recursive=recursive)
 
@@ -86,7 +91,7 @@ def run_set_mode(
             p for p in prefixes if not any(row_fh(r).startswith(p) for r in rows)
         ]
         if missing:
-            raise CliError(f"no file matched --fh: {', '.join(missing)}")
+            raise UsageError(f"no file matched --fh: {', '.join(missing)}")
 
         targets = [r for r in rows if any(row_fh(r).startswith(p) for p in prefixes)]
 
@@ -94,8 +99,7 @@ def run_set_mode(
         print_rename_results(
             results, recursive=recursive, verbose=verbose, commit=commit
         )
-
-        return EXIT_OK
+        return
 
     results = resolve(
         target,
@@ -104,5 +108,3 @@ def run_set_mode(
     )
 
     print_rename_results(results, recursive=recursive, verbose=verbose, commit=commit)
-
-    return EXIT_OK

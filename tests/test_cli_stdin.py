@@ -14,8 +14,7 @@ import os
 from io import StringIO
 from unittest.mock import patch
 
-from lssql.args import EXIT_OK
-from lssql.cli import main, stdin_has_content
+from lssql.cli import EXIT_OK, main, pipe_through, stdin_has_content
 
 # -- content: pipes, redirects, sockets --
 
@@ -163,3 +162,10 @@ def test_redirected_file_still_passes_through(tmp_path):
 
     assert code == EXIT_OK
     assert "photo.jpg" in mock_out.getvalue()
+
+
+def test_pipe_through_prints_hatfiles_and_skips_hidden_files(capsys):
+    """piped mode without main(): a Hatfile line passes, a hidden file drops."""
+    pipe_through(["a^^^ls:fh=1^^^.jpg\n", ".hidden\n"])
+
+    assert capsys.readouterr().out == "a^^^ls:fh=1^^^.jpg\n"

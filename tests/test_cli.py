@@ -28,8 +28,7 @@ from unittest.mock import patch
 
 import pytest
 
-from lssql.args import EXIT_ARGPARSE, EXIT_ERROR, EXIT_OK
-from lssql.cli import main
+from lssql.cli import EXIT_ARGPARSE, EXIT_ERROR, EXIT_OK, main
 
 
 def _ls_sql_bin():
@@ -404,7 +403,7 @@ def test_cli_missing_path_usage_error_main():
 
     assert code == EXIT_ERROR
     err = mock_err.getvalue()
-    assert "ls-sql: a path is required" in err
+    assert "ls-sql: harvest needs PATH" in err
     assert (
         "Usage: ls-sql harvest PATH [--commit] [--ext EXTS] [--max N] [-R] [--verbose]"
         in err

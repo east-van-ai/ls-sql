@@ -3,50 +3,9 @@
 import argparse
 from importlib import metadata
 
-# Argparse hardcodes 2 in `ArgumentParser.error()`, which calls `sys.exit`
-# itself, so EXIT_ARGPARSE never returns through main() and is only asserted
-# against.
-EXIT_OK = 0
-EXIT_ERROR = 1
-EXIT_ARGPARSE = 2
+from lssql import cli_harvest, cli_list, cli_reset, cli_set, cli_verify
 
 PROG = "ls-sql"
-
-
-class CliError(Exception):
-    """
-    a validation failure raised by a cli_<command>.py function.
-
-    Carries the message alone; main() catches it and does the reporting.
-    Nothing below the CLI layer raises it. A validator there returns a
-    (value, error) tuple instead, having no view of which command called it.
-    """
-
-
-# options each command accepts beyond the shared ones. Anything outside its
-# command is an error, not something quietly ignored: `list PATH --commit`
-# reads like a request to change files, and list never touches them.
-#
-# The keys are also the command vocabulary the parser accepts, so a new
-# command cannot reach argparse without its option scope being decided.
-COMMAND_OPTIONS = {
-    "list": {"query"},
-    "harvest": {"ext", "max_files", "commit", "dry_run"},
-    "set": {"tags", "fh", "commit", "dry_run"},
-    "verify": set(),
-    "reset": {"commit", "dry_run"},
-}
-
-# argparse dest -> the spelling to put in an error message
-OPTION_FLAGS = {
-    "query": "--query",
-    "ext": "--ext",
-    "max_files": "--max",
-    "tags": "--tags",
-    "fh": "--fh",
-    "commit": "--commit",
-    "dry_run": "--dry-run",
-}
 
 
 def installed_version():
@@ -71,41 +30,14 @@ def version_line():
     return f"{PROG} {installed_version()}"
 
 
-def build_parser():
+def add_path(parser):
     """
-    build ls-sql's single flat parser.
+    add the PATH positional a command acts on.
 
-    Flat, not subparsers: the command and the path are ordinary positionals
-    whose slots main() pins against sys.argv directly.
+    nargs="?" because a bare command word is a help request, not an error.
+    Registered so argparse consumes the token and prints [PATH]; the value it
+    resolves is not the one main() acts on, which reads the slot off sys.argv.
     """
-    parser = argparse.ArgumentParser(
-        prog=PROG,
-        description="pipeable ls with SQL querying and metadata harvesting",
-        # no abbreviations: --com must not silently mean --commit
-        allow_abbrev=False,
-    )
-
-    # Registered here rather than read off sys.argv: the action fires during
-    # parsing, parser.parse_known_args(), ahead of the required-positional check,
-    # which is what lets the flag answer with no command word in front of it.
-    parser.add_argument(
-        "--version",
-        action="version",
-        version=version_line(),
-        help="print the installed version and exit",
-    )
-
-    parser.add_argument(
-        "command",
-        choices=list(COMMAND_OPTIONS),
-        help="list | harvest | set | verify | reset",
-    )
-
-    # the path each command acts on -- second bare word, registered after the
-    # command so it renders second in the usage line. nargs="?" because a bare
-    # command word is a help request, not an error. Registered so argparse
-    # consumes the token and prints [PATH]; the value it resolves is not the
-    # one main() acts on.
     parser.add_argument(
         "path",
         nargs="?",
@@ -114,67 +46,110 @@ def build_parser():
         help="directory or file to act on; use . for the current directory",
     )
 
-    # shared options
+
+def add_recursive(parser):
+    """add -R, which every command with a PATH takes."""
     parser.add_argument("-R", action="store_true", dest="recursive", help="recursive")
+
+
+def add_verbose(parser):
+    """add --verbose, for the commands that report files they skip."""
     parser.add_argument("--verbose", action="store_true", help="show skipped files")
+
+
+def add_mode_flags(parser):
+    """add --commit and --dry-run, for the commands that rename."""
     parser.add_argument("--commit", action="store_true", help="execute renames")
     parser.add_argument(
         "--dry-run", action="store_true", help="preview only, no changes"
     )
 
-    # scoped options -- accepted by the parser, then checked against
-    # COMMAND_OPTIONS so a flag aimed at the wrong command is an error
+
+def add_command(subparsers, name, module):
+    """add a command's subparser, described by its module's HELP, with its PATH."""
+    parser = subparsers.add_parser(
+        name, help=module.HELP, description=module.HELP, allow_abbrev=False
+    )
+    add_path(parser)
+    add_recursive(parser)
+    return parser
+
+
+def build_parser():
+    """
+    build ls-sql's parser: one subparser per command, each with its own flags.
+
+    A flag aimed at the wrong command is therefore argparse's unrecognized
+    argument, exit 2, and so is any flag but -h and --version ahead of the
+    command word, since the top-level parser knows no others.
+    """
+    parser = argparse.ArgumentParser(
+        prog=PROG,
+        description="pipeable ls with SQL querying and metadata harvesting",
+        # no abbreviations: --com must not silently mean --commit
+        allow_abbrev=False,
+    )
+
+    subparsers = parser.add_subparsers(dest="command", required=True, metavar="COMMAND")
+
+    version_help = "Print the installed version and exit."
     parser.add_argument(
+        "--version", action="version", version=version_line(), help=version_help
+    )
+    subparsers.add_parser(
+        "version", help=version_help, description=version_help, allow_abbrev=False
+    )
+
+    list_parser = add_command(subparsers, "list", cli_list)
+    list_parser.add_argument(
         "--query",
         type=str,
         default="",
         metavar="QUERY",
-        help="(list) SQL-like query string: SELECT * WHERE key='value'",
+        help="SQL-like query string: SELECT * WHERE key='value'",
     )
-    parser.add_argument(
+
+    harvest_parser = add_command(subparsers, "harvest", cli_harvest)
+    add_verbose(harvest_parser)
+    add_mode_flags(harvest_parser)
+    harvest_parser.add_argument(
         "--ext",
         type=str,
         default="",
         metavar="EXTS",
-        help="(harvest) comma-separated extensions to harvest (e.g. jpg,png)",
+        help="comma-separated extensions to harvest (e.g. jpg,png)",
     )
-    parser.add_argument(
+    harvest_parser.add_argument(
         "--max",
         type=int,
         default=0,
         dest="max_files",
         metavar="N",
-        help="(harvest) maximum number of files to harvest",
+        help="maximum number of files to harvest",
     )
-    parser.add_argument(
+
+    set_parser = add_command(subparsers, "set", cli_set)
+    add_verbose(set_parser)
+    add_mode_flags(set_parser)
+    set_parser.add_argument(
         "--tags",
         type=str,
         default="",
         metavar="TAGS",
-        help="(set) caret-separated tag operations: ud:key=value^ud:other+=append",
+        help="caret-separated tag operations: ud:key=value^ud:other+=append",
     )
-    parser.add_argument(
+    set_parser.add_argument(
         "--fh",
         type=str,
         default=None,
         metavar="HASHES",
-        help="(set) comma-separated ls:fh prefixes to select files by content hash",
+        help="comma-separated ls:fh prefixes to select files by content hash",
     )
 
+    add_verbose(add_command(subparsers, "verify", cli_verify))
+
+    reset_parser = add_command(subparsers, "reset", cli_reset)
+    add_verbose(reset_parser)
+    add_mode_flags(reset_parser)
+
     return parser
-
-
-def out_of_scope_option(args):
-    """
-    return the flag spelling of the first option not belonging to args.command.
-
-    None when every option passed belongs to the command. Reporting is left to
-    the caller, so every message ls-sql prints is written in one place.
-    """
-    allowed = COMMAND_OPTIONS[args.command]
-    for dest, flag in OPTION_FLAGS.items():
-        if dest in allowed:
-            continue
-        if getattr(args, dest):
-            return flag
-    return None

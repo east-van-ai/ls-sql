@@ -2,10 +2,33 @@
 
 import os
 
+from lssql.errors import ReadinessError
 from lssql.parser import should_skip
 
 # rename-preview status column, as wide as the longest status word ("restored")
 STATUS_WIDTH = 8
+
+
+def commit_requested(args) -> bool:
+    """
+    return True when the renames should happen: --commit, and no --dry-run.
+
+    --dry-run wins when both are passed, so a preview is never escalated by a
+    flag the user may not have noticed on the line.
+    """
+    return args.commit and not args.dry_run
+
+
+def require_path(target: str) -> None:
+    """
+    raise ReadinessError unless target is an existing directory or file.
+
+    Called first by every command that reads its PATH. Whether a slot must
+    already exist is the command's to decide, so the grammar checks in main()
+    count the bare words and never look at what they name.
+    """
+    if not (os.path.isdir(target) or os.path.isfile(target)):
+        raise ReadinessError(f"directory or file not found: {target}")
 
 
 def resolve(target: str, on_file, on_directory) -> list:

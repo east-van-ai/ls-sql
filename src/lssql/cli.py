@@ -41,7 +41,8 @@
 # The command word goes right after ls-sql, the path right after the
 # command. Both positions are fixed.
 #
-# -R              recursive        --verbose        show skipped files
+# -R              recursive
+# --verbose       show skipped files                 (harvest, set, verify, reset)
 # --max N         harvest at most N files            (harvest)
 # --ext EXTS      harvest only these extensions      (harvest)
 # --tags TAGS     caret-separated tag operations     (set, required)
@@ -66,42 +67,90 @@ import io
 import os
 import stat
 import sys
+from collections import namedtuple
 
 from lssql import cli_harvest, cli_list, cli_reset, cli_set, cli_verify
-from lssql.args import (
-    EXIT_ERROR,
-    EXIT_OK,
-    CliError,
-    build_parser,
-    out_of_scope_option,
-    version_line,
-)
-from lssql.harvester_util import parse_ext_filter
+from lssql.args import build_parser, version_line
+from lssql.errors import ReadinessError, UsageError
 from lssql.parser import build_file_path, parse_filename, should_skip, split_path
-from lssql.setter import parse_set_string
 
-_MODE_MODULES = {
-    "list": cli_list,
-    "harvest": cli_harvest,
-    "set": cli_set,
-    "verify": cli_verify,
-    "reset": cli_reset,
+# Argparse hardcodes 2 in `ArgumentParser.error()`, which calls `sys.exit`
+# itself, so EXIT_ARGPARSE never returns through main() and is only asserted
+# against.
+EXIT_OK = 0
+EXIT_ERROR = 1
+EXIT_ARGPARSE = 2
+
+__all__ = ["EXIT_ARGPARSE", "EXIT_ERROR", "EXIT_OK", "main"]
+
+Command = namedtuple("Command", "bare usage slots action")
+"""
+a command word's answer to being typed alone, its usage line, the path slots it
+reads, and the action a full invocation runs.
+
+The action takes the paths and the parsed args, returns nothing, and raises to
+fail. For version, bare and action both read from version_line, since running
+the command answers the bare word.
+"""
+
+COMMANDS = {
+    "list": Command(
+        lambda: cli_list.__doc__,
+        cli_list.USAGE,
+        cli_list.SLOTS,
+        lambda paths, args: cli_list.run(*paths, args=args),
+    ),
+    "harvest": Command(
+        lambda: cli_harvest.__doc__,
+        cli_harvest.USAGE,
+        cli_harvest.SLOTS,
+        lambda paths, args: cli_harvest.run(*paths, args=args),
+    ),
+    "set": Command(
+        lambda: cli_set.__doc__,
+        cli_set.USAGE,
+        cli_set.SLOTS,
+        lambda paths, args: cli_set.run(*paths, args=args),
+    ),
+    "verify": Command(
+        lambda: cli_verify.__doc__,
+        cli_verify.USAGE,
+        cli_verify.SLOTS,
+        lambda paths, args: cli_verify.run(*paths, args=args),
+    ),
+    "reset": Command(
+        lambda: cli_reset.__doc__,
+        cli_reset.USAGE,
+        cli_reset.SLOTS,
+        lambda paths, args: cli_reset.run(*paths, args=args),
+    ),
+    "version": Command(
+        version_line,
+        "ls-sql version",
+        (),
+        lambda paths, args: print(version_line()),
+    ),
 }
-
-# version has no module to carry its usage line, so it sits beside the table
-VERSION_USAGE = "ls-sql version"
 
 
 def usage_error(usage: str, message: str) -> int:
-    """Report any error, readiness failures included, with the matching usage."""
+    """Report a command line ls-sql could not use, with that command's usage."""
+    sys.stdout.flush()
     print(f"ls-sql: {message}", file=sys.stderr)
     print(f"Usage: {usage}", file=sys.stderr)
     return EXIT_ERROR
 
 
 def readiness_error(message: str) -> int:
-    """Report what the run needed and did not find, with no usage line."""
-    print(f"ls-sql: {message}", file=sys.stderr)
+    """
+    Report what the run needed and did not find, with no usage line.
+
+    An empty message prints nothing: the command has already said everything
+    on stdout, and only the exit code is left to carry.
+    """
+    sys.stdout.flush()
+    if message:
+        print(f"ls-sql: {message}", file=sys.stderr)
     return EXIT_ERROR
 
 
@@ -134,6 +183,23 @@ def stdin_has_content() -> bool:
     return stat.S_ISFIFO(mode) or stat.S_ISREG(mode) or stat.S_ISSOCK(mode)
 
 
+def pipe_through(lines) -> None:
+    """
+    print each piped line as the full path of its parsed Hatfile name.
+
+    Piped mode, a bare ls-sql with content on stdin. It takes any iterable of
+    lines rather than reading sys.stdin itself, so it runs without main().
+    Hidden and extensionless files are skipped, as in every other mode.
+    """
+    for line in lines:
+        path, filename = split_path(line.strip())
+        if should_skip(filename):
+            continue
+        parsed = parse_filename(filename)
+        parsed["path"] = path
+        print(build_file_path(parsed))
+
+
 def leading_paths(tokens: list[str]) -> list[str]:
     """
     return the run of bare words ahead of the first flag.
@@ -149,140 +215,64 @@ def leading_paths(tokens: list[str]) -> list[str]:
     return paths
 
 
-def main() -> int:
+def main(argv=None) -> int:
     """
     read the command line, dispatch to a command, and return an exit code.
 
-    Nothing here calls sys.exit(): the code travels back through the return,
-    the way the cli_<command> modules already hand theirs up to this dispatch.
-    A command's own validation failure arrives as a CliError instead, so an
-    exit code coming back is never an error.
-    """
-    # The only invocation that reads stdin.
-    if len(sys.argv) == 1:
-        if stdin_has_content():
-            for line in sys.stdin:
-                path, filename = split_path(line.strip())
-                if should_skip(filename):
-                    continue
-                parsed = parse_filename(filename)
-                parsed["path"] = path
-                print(build_file_path(parsed))
-            return EXIT_OK
+    argv is the command line after the program name, sys.argv[1:] when left
+    out, so a caller can pass a list without patching sys.argv.
 
+    Nothing here calls sys.exit(): the code travels back through the return.
+    A command returns nothing and raises to fail, so every exit code is
+    decided here.
+    """
+    tokens = list(sys.argv[1:] if argv is None else argv)
+
+    # The only invocation that reads stdin.
+    if not tokens and stdin_has_content():
+        pipe_through(sys.stdin)
+        return EXIT_OK
+
+    if not tokens:
         print(__doc__)
         return EXIT_OK
 
-    # Ahead of the parser, like the banner above: a documentation request that
-    # answers without a path. Routing it through COMMAND_OPTIONS would require a
-    # PATH and would print the word in argparse's invalid-choice message.
-    if sys.argv[1] == "version":
-        if len(sys.argv) > 2:
-            return usage_error(
-                VERSION_USAGE, f"version takes nothing after it: {sys.argv[2]!r}"
-            )
-        print(version_line())
+    if len(tokens) == 1 and tokens[0] in COMMANDS:
+        print(COMMANDS[tokens[0]].bare())
         return EXIT_OK
 
     parser = build_parser()
-    args, extras = parser.parse_known_args()
+    args, extras = parser.parse_known_args(tokens)
 
     # An unknown flag is argparse's to name, so hand the line back to it.
     if any(extra.startswith("-") for extra in extras):
-        parser.parse_args()
+        parser.parse_args(tokens)
 
-    # The command argparse resolved is still the one typed, even out of place.
-    usage = _MODE_MODULES[args.command].USAGE
+    command = COMMANDS[args.command]
 
-    # Both bare words are read off sys.argv, never taken from argparse: a flag
-    # came first exactly when the resolved command is not sys.argv[1].
-    if sys.argv[1] != args.command:
+    paths = leading_paths(tokens[1:])
+
+    if len(paths) < len(command.slots):
+        needed = " and ".join(command.slots)
+        if len(command.slots) > 1:
+            needed = f"both {needed}"
+        return usage_error(command.usage, f"{args.command} needs {needed}")
+
+    if len(paths) > len(command.slots):
+        stray = paths[len(command.slots)]
+        last = command.slots[-1] if command.slots else "it"
         return usage_error(
-            usage,
-            f"the command must come right after 'ls-sql' (got {sys.argv[1]!r} first).",
+            command.usage, f"{args.command} takes nothing after {last}: {stray!r}"
         )
 
-    paths = leading_paths(sys.argv[2:])
-    path = paths[0] if paths else None
-
-    if len(paths) > 1:
-        return usage_error(
-            usage, f"{args.command} takes nothing after PATH: {paths[1]!r}"
-        )
-
-    # A command word and nothing else at all is a help request. Any other token
-    # present means something specific was asked for.
-    if path is None:
-        if len(sys.argv) == 2:
-            print(_MODE_MODULES[args.command].__doc__)
-            return EXIT_OK
-        return usage_error(
-            usage,
-            "a path is required right after the command; use '.' for the current directory.",
-        )
-
-    if not (os.path.isdir(path) or os.path.isfile(path)):
-        return readiness_error(f"directory or file not found: {path}")
-
-    stray = out_of_scope_option(args)
-    if stray:
-        return usage_error(usage, f"{stray} is not an option of '{args.command}'.")
-
-    commit = args.commit and not args.dry_run
-
-    # usage_error() writes the whole message, here and nowhere else.
     try:
-        if args.command == "list":
-            return cli_list.run_list_mode(
-                path,
-                query=args.query,
-                recursive=args.recursive,
-            )
+        command.action(paths, args)
+    except UsageError as error:
+        return usage_error(command.usage, str(error))
+    except ReadinessError as error:
+        return readiness_error(str(error))
 
-        if args.command == "harvest":
-            cli_harvest.run_harvest_mode(
-                path,
-                commit=commit,
-                recursive=args.recursive,
-                max_files=args.max_files,
-                allowed_exts=parse_ext_filter(args.ext),
-                verbose=args.verbose,
-            )
-            return EXIT_OK
-
-        if args.command == "set":
-            if not args.tags:
-                return usage_error(usage, "set requires --tags.")
-
-            ops, error = parse_set_string(args.tags)
-            if error:
-                return usage_error(usage, error)
-
-            return cli_set.run_set_mode(
-                path,
-                ops,
-                commit=commit,
-                recursive=args.recursive,
-                verbose=args.verbose,
-                fh=args.fh,
-            )
-
-        if args.command == "verify":
-            # 1 if changed data is found; otherwise 0
-            return cli_verify.run_verify_mode(
-                path, recursive=args.recursive, verbose=args.verbose
-            )
-
-        # reset
-        cli_reset.run_reset_mode(
-            path,
-            commit=commit,
-            recursive=args.recursive,
-            verbose=args.verbose,
-        )
-        return EXIT_OK
-    except CliError as error:
-        return usage_error(usage, str(error))
+    return EXIT_OK
 
 
 if __name__ == "__main__":
